@@ -61,9 +61,34 @@ bot.action(/^sub(?::(.+))?$/, async (ctx) => {
 
 bot.action('watchDemo', async (ctx) => {
     const userId = ctx.from.id;
-    if(getDateDbUsers(userId)){
-        
+    const username = ctx.from.username
+    const dbUsers = getDateDbUsers(userId);
+    //проверка на использованность
+    if (dbUsers?.demoTaryff === 0) {
+        return ctx.answerCbQuery('Вы уже использовали пробный тариф').catch(() => { })
     }
+
+    //добавление пользователя в панель
+    const allTime = Date.now() + 259200000
+    const expiredAt = new Date(allTime).toISOString() //сейчас + 3 дня
+    const res = await createRemnewaveUser(userId, expiredAt, 10, username, null, 1, 'test');
+
+    const link = getLink(userId).link
+
+    const button = Markup.inlineKeyboard([[
+        Markup.button.url('Инструкция', link)
+    ],
+    [
+        { text: 'Скопировать ссылку', copy_text: { text: link } }
+    ],
+    [
+        Markup.button.callback('Главное меню', 'back')
+    ]])
+
+    safeEdit(ctx, `Успешная активация пробного периода на 3 дня\n<b>Приятного пользования! </b>Ваша ссылка:\n<pre><code>${link}</code></pre>\n`, {
+        parse_mode: 'HTML',
+        ...button
+    })
 })
 
 bot.action(/^devices(?::(.+):(.+))?$/, async (ctx) => {
@@ -255,7 +280,7 @@ bot.action('backTheTaryff', checkOwner, (ctx) => {
 })
 
 bot.action('tarryf1', async (ctx) => {
-    let subTimeTarryf1 = 120000;//31 день, длительность подписки в мс (не абсолютное время)
+    let subTimeTarryf1 = 2678400000;//31 день, длительность подписки в мс (не абсолютное время)
     const userId = ctx.from.id;
 
     //кастомная цена
@@ -306,7 +331,7 @@ bot.action('tarryf1', async (ctx) => {
 })
 
 bot.action('tarryf2', async (ctx) => {
-    let subTimeTarryf2 = 120000;//31 день, длительность подписки в мс (не абсолютное время)
+    let subTimeTarryf2 = 2678400000;//31 день, длительность подписки в мс (не абсолютное время)
     const userId = ctx.from.id;
     //кастомная цена
     const custPrice2 = getDatedbCustPrice(userId)?.taryff2
@@ -384,10 +409,12 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     //создание подписки в панеле
                     //dbPayment.subTime хранит длительность подписки в мс, поэтому абсолютное время окончания = Date.now() + dbPayment.subTime
                     const newExpireAt = Date.now() + dbPayment.subTime;
-                    const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username);
-                    const nameTaryff =
-                        //запись пользователя в базу
-                        createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
+                    const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId);
+                    const nameTaryff = null
+                    //запись пользователя в базу
+                    if (resCreateRemnewaveUser === 'test') return
+                    await createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
+
                 } else {
                     const taryff = dbUser.nameTaryff
                     const taryffPayment = dbPayment.nameTaryff
@@ -446,13 +473,16 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                                 //обновление названия тарифа
                                 const newNameTaryff = dbPayment.nameTaryff;
                                 await updatedbUsers('nameTaryff', 'userId', newNameTaryff, userId)
+
                                 //включение уведомления
                                 updatedbUsers('notified1h', 'userId', 0, userId);
+
                                 //обновление в панельке
                                 updateTimeGbTrafficTaryff(userId);
 
                             } else {
-                                addSubIndb(userId, dbUser.uuid, dbPayment.nameTaryff, dbPayment.subTime, dbPayment.maxGB);
+                                const subTime = dbPayment.subTime
+                                addSubIndb(userId, dbUser.uuid, dbPayment.nameTaryff, subTime, dbPayment.maxGB);
                                 //включение уведомления
                                 updatedbUsers('notified1h', 'userId', 0, userId);
                             }
@@ -460,19 +490,19 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     }
                 }
                 //ссылка эщкере
-                const link = getLink(userId)
+                const link = getLink(userId).link
                 //клава выводящаяся типо
                 const button = Markup.inlineKeyboard([[
-                    Markup.button.url('Инструкция', link.link)
+                    Markup.button.url('Инструкция', link)
                 ],
                 [
-                    { text: 'Скопировать ссылку', copy_text: { text: link.link } }
+                    { text: 'Скопировать ссылку', copy_text: { text: link } }
                 ],
                 [
                     Markup.button.callback('Главное меню', 'back')
                 ]])
 
-                safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link.link}</code></pre>\n<b>Спасибо! Тариф активируется как только закончится имеющийся</b>`, {
+                safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо! Тариф активируется как только закончится имеющийся</b>`, {
                     parse_mode: 'HTML',
                     ...button
                 })
@@ -514,6 +544,10 @@ bot.action('whyPressing', (ctx) => {
 bot.action('back', (ctx) => {
     ctx.answerCbQuery();
     getMenu(ctx)
+})
+
+bot.action('perBuy', (ctx) => {
+    ctx.answerCbQuery()
 })
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

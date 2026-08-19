@@ -1,16 +1,23 @@
 
 require('dotenv').config();
-const { getDateDbUsers } = require('./db/dbUsers');
+const { getDateDbUsers, createSubdb } = require('./db/dbUsers');
 const { writeLogs } = require('./logs/logFunc');
-const axios = require('axios');
+const { dontTouch } = require('./db/dbPayment');
 const { remnawaveToken, domen, uuidSquad, secretName, secretValue } = process.env
+
+const axios = require('axios');
+
+const api = axios.create({
+  baseURL: `https://${domen}`,
+  headers: { Authorization: `Bearer ${remnawaveToken}` }
+});
 
 function createLegitUrl(path = '') {
   const url = `https://${domen}${path}?${secretName}=${secretValue}`
   return url
 }
 
-async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username) {
+async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, paymentId = null, notPayment = 0, nameTaryff = '') {
 
   const expireDate = new Date(expireAt).toISOString();
   const createdAt = new Date(Date.now()).toISOString();
@@ -41,6 +48,32 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username) {
     if (!response.ok) {
       const errData = await response.json().catch(() => null)
       console.error('Ошибка запроса ramewaveAPI:', response.status, errData || response.statusText);
+      if (errData?.errorCode === 'A019' || errData?.message?.includes('User username already exists')) {
+
+        console.log(`Пользователь ${username} уже существует. Получаем/обновляем данные...`);
+        if (!notPayment) {
+          const dbPayment = await dontTouch(paymentId);//получение строки покупки
+          const res = await getUuidByTelegramId(userId);//получение uuid запросом в панель с помощью тг айди(уже не объект, не парся)
+          const uuid = res.uuid
+          const link = res.subscriptionUrl
+          const subTime = Date.now() + dbPayment.subTime
+
+          //создание пользователя в базе
+          await createSubdb(userId, subTime, dbPayment.maxGB, 0, res.id, link, uuid, username, dbPayment.nameTaryff, 0, 0)
+
+          //перенос из базы новых данных в панель
+          await updateTimeGbTrafficTaryff(userId);
+        } else {
+          const res = await getUuidByTelegramId(userId);
+
+          //создание пользователя в базе
+          await createSubdb(userId, expireAt, trafficLimitGB, 0, res.id, res.subscriptionUrl, res.uuid, username, nameTaryff, 0, 0)
+
+          //перенос из базы новых данных в панель
+          await updateTimeGbTrafficTaryff(userId)
+        }
+        return 'test'
+      }
       return null;
     }
     const data = await response.json()
@@ -48,13 +81,22 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username) {
     return data;
 
   } catch (error) {
+    const apierror = error.message;
     console.error('Ошибка запроса к remnawave', error.message);
     console.error('детали:', error.cause)
-    //запись логов в отдельнй файл
+    //запись логов в отдельный файл
     writeLogs(error, '|создание пользователя в панеле remnawave|')
     return null;
   }
 }
+
+//получение uuid с помощью тг айди
+async function getUuidByTelegramId(userId) {
+  const { data } = await api.get(createLegitUrl(`/api/users/by-telegram-id/${userId}`));
+  console.log('ага ёпт', data)
+  return data.response[0];
+}
+
 //получение устройств пользователя
 async function getHWIDDevices(uuid = '') {
   const options = {
@@ -157,15 +199,17 @@ async function updateTimeGbTrafficTaryff(userId) {
     console.log(data)
   } catch (error) {
     if (error.response?.data) {
-      console.dir(error.response.data, { depth: null });}
-      writeLogs(error.message, 'updateTimeGbTrafficTaryff');
+      console.dir(error.response.data, { depth: null });
     }
+    writeLogs(error.response, 'updateTimeGbTrafficTaryff');
   }
+}
 
-  module.exports = {
-    createRemnewaveUser,
-    getHWIDDevices,
-    revokeUrl,
-    deletedDevice,
-    updateTimeGbTrafficTaryff
-  }
+module.exports = {
+  createRemnewaveUser,
+  getHWIDDevices,
+  revokeUrl,
+  deletedDevice,
+  updateTimeGbTrafficTaryff,
+  getUuidByTelegramId
+}

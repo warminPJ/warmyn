@@ -18,7 +18,7 @@ async function getMenu(ctx) {
     const subTimeUser = db.prepare('SELECT subTime FROM users WHERE userId = ?').get(userId)?.subTime || 0;
     const expireAt = subTimeUser ? new Date(subTimeUser) : null;
     const daysLeft = expireAt ? Math.max(0, Math.ceil((expireAt - Date.now()) / 1000 / 60 / 60 / 24)) : 0;
-    const dateLeft = expireAt ? expireAt.toLocaleDateString('ru-RU') : 'нет подписки';
+    const dateLeft = expireAt ? expireAt.toLocaleDateString('ru-RU') : 'Нет подписки';
     //фулл строка с данными пользователя из users
     const dbUsers = await getDateDbUsers(userId)
     if (ctx.match[1] === 'rev') {
@@ -45,6 +45,9 @@ async function getMenu(ctx) {
             ],
             [
                 Markup.button.callback('Попробовать бесплатно', 'watchDemo')
+            ],
+            [
+                Markup.button.callback('test', 'preBuy')
             ]
         ];
 
@@ -55,13 +58,17 @@ async function getMenu(ctx) {
             Markup.inlineKeyboard(buttons)
         );
     }
+
     //запись в переменную имени тарифа пользователя
     let nameTaryff = ''
     if (dbUsers.nameTaryff === 'taryff1') {
         nameTaryff = 'Звёзд с неба не хватает';
     } else if (dbUsers.nameTaryff === 'taryff2') {
         nameTaryff = 'И папе, и маме, и другу'
+    } else if(dbUsers.nameTaryff === 'test'){
+        nameTaryff = 'Тестовая подписка'
     }
+
     if (!dbUsers?.userId) {
         return ctx.answerCbQuery('')
     }
