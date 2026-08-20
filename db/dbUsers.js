@@ -3,6 +3,7 @@ const db = new Datebase('base.db');
 //создание базы данных пользователей, основная
 db.exec('CREATE TABLE IF NOT EXISTS users (userId TEXT PRIMARY KEY, subTime INTEGER, maxGB INTEGER, money REAL, subId TEXT, link TEXT, uuid TEXT, username TEXT, nameTaryff TEXT, notified1h INTEGER DEFAULT 0, demotaryff INTEGER DEFAULT 0)');
 const stmt = db.prepare('INSERT OR REPLACE INTO users (userId, subTime, maxGB, money, subId, link, uuid, username, nameTaryff, notified1h, demoTaryff) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
 function createSubdb(userId, subTime, maxGB, money, subId, link, uuid, username, nameTaryff, notified1h = 0, demotaryff = 0) {
     const log = stmt.run(Math.floor(userId), subTime, maxGB, money, Math.floor(subId), link, uuid, username, nameTaryff, notified1h, demotaryff);
 }

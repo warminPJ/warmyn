@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const { getMenu, persent, priceComparison, checkOwner, openMenuAdmin, safeDelete, safeEdit, checkOwnersId, pendingMessage } = require('./botfunc');
+const { getMenu, persent, priceComparison, checkOwner, openMenuAdmin, pendingMessage } = require('./botfunc');
 const { createPayment, dontTouch, markPaymentDone, markPaymentError } = require('./db/dbPayment')
 const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
 const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
@@ -15,6 +15,9 @@ const { domen, port, linkProxy, ShopId, SecretKey, botToken } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
 const express = require('express');
 const { cronCheck } = require('./cron');
+const { safeDelete, safeEdit } = require('./helpers')
+const { onoffDiscount } = require('./akciiEpt/discount')
+const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 
 //инициализация бота
 const bot = new Telegraf(botToken, {
@@ -536,6 +539,44 @@ bot.action(/^chk:(.+)/, async (ctx) => {
     }
 })
 
+bot.action('discount', async (ctx) => {
+    const userId = ctx.from.id;
+    const username = ctx.from.username
+
+    const dbDiscount = await getdbDiscount(userId)
+    console.log(dbDiscount)
+    if(!dbDiscount){
+    await createDiscountdb(userId, username, 20, 'test')
+    await ctx.answerCbQuery('Успешно!', {
+        show_alert: true
+    })
+    return
+}
+    ctx.answerCbQuery('Ну всё, всё, не кликай, ты уже добавлен')
+})
+
+bot.action('setupDiscount', checkOwner, (ctx) => {
+    safeEdit(ctx, 'включить или выключить',
+        Markup.inlineKeyboard([
+            [
+                Markup.button.callback('on','onoff:on')
+            ],
+            [
+                Markup.button.callback('off','onoff:off')
+            ],
+            [
+                Markup.button.callback('Назад', 'back')
+            ]
+            
+        ]))
+})
+
+bot.action(/^onoff:(.+)/, checkOwner, (ctx) => {
+    const res = ctx.match[1]
+
+    onoffDiscount(res)
+    ctx.answerCbQuery('успешно', { show_alert: true })
+})
 
 bot.action('whyPressing', (ctx) => {
     ctx.answerCbQuery('Что ты ожидаешь?')
@@ -544,10 +585,6 @@ bot.action('whyPressing', (ctx) => {
 bot.action('back', (ctx) => {
     ctx.answerCbQuery();
     getMenu(ctx)
-})
-
-bot.action('perBuy', (ctx) => {
-    ctx.answerCbQuery()
 })
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

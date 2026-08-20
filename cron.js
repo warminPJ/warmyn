@@ -4,7 +4,8 @@ const { Markup } = require('telegraf');
 const { writeLogs } = require('./logs/logFunc');
 const { getDateDbSubscritionQueue, deleteSubscritionQueue } = require('./db/dbSubscriptionQueue');
 const { updateTimeGbTrafficTaryff } = require('./remnawave');
-const { pendingMessage, safeDelete, makeCtx } = require('./botfunc')
+const { makeCtx } = require('./botfunc')
+const { safeDelete, safeEdit } = require('./helpers')
 
 //ctx тут без контекста тоесть используется чисто для импорта функций а не получения инфы
 async function cronCheck(bot) {

@@ -2,15 +2,10 @@ const { db, getLink, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
 const { revokeUrl } = require('./remnawave');
 const { Telegraf, Markup } = require('telegraf');
 const { writeLogs } = require('./logs/logFunc');
-const idOwner = (process.env.idOwner || '').split(',').map(Number)
+const { discount } = require('./akciiEpt/discount')
+const { checkOwnersId,safeEdit } = require('./helpers')
 
 const pendingMessage = new Map();
-
-function checkOwnersId(ctx) {
-    console.log(idOwner)
-    console.log(idOwner.includes(ctx.from.id))
-    return idOwner.includes(ctx.from.id)
-}
 
 async function getMenu(ctx) {
 
@@ -19,8 +14,14 @@ async function getMenu(ctx) {
     const expireAt = subTimeUser ? new Date(subTimeUser) : null;
     const daysLeft = expireAt ? Math.max(0, Math.ceil((expireAt - Date.now()) / 1000 / 60 / 60 / 24)) : 0;
     const dateLeft = expireAt ? expireAt.toLocaleDateString('ru-RU') : 'Нет подписки';
+
     //фулл строка с данными пользователя из users
     const dbUsers = await getDateDbUsers(userId)
+
+    if (await discount(ctx)) {
+        return
+    }
+
     if (ctx.match[1] === 'rev') {
         const userId = ctx.from.id;
         const newUrl = await revokeUrl(dbUsers.uuid);
@@ -39,6 +40,7 @@ async function getMenu(ctx) {
     const link = getLink(userId)
     const displayLink = (link.status === false) ? link.link : `<pre><code>${link.link}</code></pre>`
     if (!user) {
+
         const buttons = [
             [
                 Markup.button.callback('Тарифы', 'rate')
@@ -47,7 +49,7 @@ async function getMenu(ctx) {
                 Markup.button.callback('Попробовать бесплатно', 'watchDemo')
             ],
             [
-                Markup.button.callback('test', 'preBuy')
+                Markup.button.callback('test', 'discount')
             ]
         ];
 
@@ -65,12 +67,12 @@ async function getMenu(ctx) {
         nameTaryff = 'Звёзд с неба не хватает';
     } else if (dbUsers.nameTaryff === 'taryff2') {
         nameTaryff = 'И папе, и маме, и другу'
-    } else if(dbUsers.nameTaryff === 'test'){
+    } else if (dbUsers.nameTaryff === 'test') {
         nameTaryff = 'Тестовая подписка'
     }
 
     if (!dbUsers?.userId) {
-        return ctx.answerCbQuery('')
+        return ctx.answerCbQuery('').catch(() => {})
     }
 
     //отображение меню если подписка закончилась
@@ -150,6 +152,9 @@ function openMenuAdmin(ctx) {
             ],
             [
                 Markup.button.callback('Назад', 'back')
+            ],
+            [
+                Markup.button.callback('вкл/выкл пребай', 'setupDiscount')
             ]
         ])
     )
@@ -170,58 +175,6 @@ function makeCtx(bot, chatId) {
     }
 }
 
-
-async function safeDelete(ctx = null, messageId = null, userId = null) {
-    try {
-
-        const chatId = ctx.chat?.id || ctx.from?.id || userId;
-        console.log(messageId, chatId)
-        if (messageId && chatId) {
-            return await ctx.telegram.deleteMessage(chatId, messageId);
-        }
-        return await ctx.deleteMessage()
-
-    }
-    catch (er) {
-        writeLogs(er, 'safeDelete');
-    }
-}
-
-
-
-async function safeEdit(ctx, text, button = {}, idMessageEdit = null) {
-    if (ctx.callbackQuery) {
-        await ctx.answerCbQuery().catch(() => { })
-    }
-
-    const userId = ctx.from.id;
-
-    try {
-        console.log(idMessageEdit)
-        if (idMessageEdit) {
-            console.log('я тут');
-            return await ctx.telegram.editMessageText(
-                ctx.chat.id,      // 1. ID чата
-                idMessageEdit,    // 2. ID сообщения
-                null,             // 3. inline_message_id (пропускаем)
-                text,             // 4. Текст
-                button            // 5. Кнопки (extra)
-            );
-        }
-
-        if (ctx.callbackQuery) {
-            return await ctx.editMessageText(text, button)
-        }
-        return await ctx.reply(text, button)
-    }
-    catch (error) {
-        if (error.description?.includes('message is not modified')) return;
-        writeLogs(error, 'safeEdit');
-        console.log(error)
-        return await ctx.reply(text, button);
-    }
-}
-
 async function checkExistence(userId) {
 
 }
@@ -232,8 +185,6 @@ module.exports = {
     priceComparison,
     checkOwner,
     openMenuAdmin,
-    safeDelete,
-    safeEdit,
     checkOwnersId,
     pendingMessage,
     makeCtx
