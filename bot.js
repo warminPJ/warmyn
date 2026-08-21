@@ -19,9 +19,7 @@ const { onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 
 //инициализация бота
-const bot = new Telegraf(botToken, {
-    telegram: { agent }
-})
+const bot = new Telegraf(botToken)
 
 
 //обработка /start
@@ -373,7 +371,6 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     //dbPayment.subTime хранит длительность подписки в мс, поэтому абсолютное время окончания = Date.now() + dbPayment.subTime
                     const newExpireAt = Date.now() + dbPayment.subTime;
                     const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId);
-                    const nameTaryff = null
                     //запись пользователя в базы
                     if (resCreateRemnewaveUser === 'test') {
                         //ссылка эщкере
@@ -397,6 +394,23 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     else {
                         await createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
                     }
+                    const link = getLink(userId).link
+                    //клава выводящаяся типо
+                    const button = Markup.inlineKeyboard([[
+                        Markup.button.url('Инструкция', link)
+                    ],
+                    [
+                        { text: 'Скопировать ссылку', copy_text: { text: link } }
+                    ],
+                    [
+                        Markup.button.callback('Главное меню', 'back')
+                    ]])
+
+                    return safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b>`, {
+                        parse_mode: 'HTML',
+                        ...button
+                    })
+
                 } else {
                     const taryff = dbUser.nameTaryff
                     const taryffPayment = dbPayment.nameTaryff
@@ -487,7 +501,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                 safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо! Тариф активируется как только закончится имеющийся</b>`, {
                     parse_mode: 'HTML',
                     ...button
-                })//код приходит сюда как после продления, так и после первой покупки, фикс + перенос на vps 
+                })
 
             } else {
                 await ctx.answerCbQuery('Платёж уже оплачен!', { show_alert: false })
