@@ -123,10 +123,6 @@ async function getMenu(ctx) {
     );
 }
 
-function persent(val, pct) {
-    const res = Math.ceil(Number(val) * (1 - Number(pct)) / 100)
-    return res;
-}
 
 function priceComparison(userId, numTarryf) {
     const column = `taryff${numTarryf}`;
@@ -181,7 +177,6 @@ async function checkExistence(userId) {
 
 module.exports = {
     getMenu,
-    persent,
     priceComparison,
     checkOwner,
     openMenuAdmin,

@@ -7,7 +7,13 @@ function checkOwnersId(ctx) {
     return idOwner.includes(ctx.from.id)
 }
 
-
+function persent(val, pct) {
+    const price = Number(val);
+    const percent = Number(pct)
+    const res = Math.ceil(price * (100 - percent) / 100)
+    console.log(res)
+    return res;
+}
 
 async function safeDelete(ctx = null, messageId = null, userId = null) {
     try {
@@ -63,5 +69,6 @@ async function safeEdit(ctx, text, button = {}, idMessageEdit = null) {
 module.exports = {
     checkOwnersId,
     safeDelete,
-    safeEdit
+    safeEdit,
+    persent
 };

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const { getMenu, persent, priceComparison, checkOwner, openMenuAdmin, pendingMessage } = require('./botfunc');
+const { getMenu, priceComparison, checkOwner, openMenuAdmin, pendingMessage } = require('./botfunc');
 const { createPayment, dontTouch, markPaymentDone, markPaymentError } = require('./db/dbPayment')
 const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
 const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
@@ -11,12 +11,11 @@ const { taryffUsers, addUserId, numTaryff, priceTaryff, clearMap } = require('./
 const { writeLogs } = require('./logs/logFunc');
 const { createDevicesdb, deleteDevicesBySubId, saveDevicesToDb, getButtonsForUser } = require('./db/dbUserDevices');
 const { getDateDbSubscritionQueue, addSubIndb, updatedbSubscritionQueue } = require('./db/dbSubscriptionQueue')
-const { domen, port, linkProxy, ShopId, SecretKey, botToken } = process.env
+const { linkProxy, ShopId, SecretKey, botToken } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
-const express = require('express');
 const { cronCheck } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
-const { onoffDiscount } = require('./akciiEpt/discount')
+const { onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 
 //инициализация бота
@@ -24,13 +23,6 @@ const bot = new Telegraf(botToken, {
     telegram: { agent }
 })
 
-
-//тарифы чо
-const priceTarryf1 = 100;
-const priceTarryf2 = 250;
-const maxGbTarryf1 = 100;
-const maxGbTarryf2 = 300;
-const userMap = new Map()
 
 //обработка /start
 bot.start(async (ctx) => {
@@ -160,9 +152,9 @@ bot.action('rate', async (ctx) => {
     return await safeEdit(ctx, 'Выберите тариф:',
         Markup.inlineKeyboard([
             [
-                Markup.button.callback('Звёзд с неба не хватает | 100 гб', 'tarryf1')
+                Markup.button.callback('Звёзд с неба не хватает | 100 гб', 'taryff:1')
             ], [
-                Markup.button.callback('И папе, и маме, и другу | 300 гб', 'tarryf2')
+                Markup.button.callback('И папе, и маме, и другу | 300 гб', 'taryff:2')
             ], [
                 Markup.button.callback('Назад', 'back')
             ]
@@ -282,26 +274,40 @@ bot.action('backTheTaryff', checkOwner, (ctx) => {
     openMenuAdmin(ctx);
 })
 
-bot.action('tarryf1', async (ctx) => {
-    let subTimeTarryf1 = 2678400000;//31 день, длительность подписки в мс (не абсолютное время)
+bot.action(/^taryff:(.+)$/, async (ctx) => {
+    let subTimeTarryf = 2678400000;//31 день, длительность подписки в мс (не абсолютное время)
+    const maxGbTarryf = {
+        1: 100, // ГБ для тарифа 1
+        2: 300, // ГБ для тарифа 2
+    };
+
     const userId = ctx.from.id;
-
+    const num = ctx.match[1]
+    const dbCustPrice = getDatedbCustPrice(userId)
     //кастомная цена
-    const custPrice1 = getDatedbCustPrice(userId)?.taryff1
-
+    const custPrice = dbCustPrice?.[`taryff${num}`]
+    const price = takeFixPrice(ctx, num)
+    console.log(price)
     //платёж епт               выбор если каст не равен 0 то выбирается он а если 0 то деф цена
     try {
-        const payment = await pay(custPrice1 || priceTarryf1, ShopId, SecretKey);
+        const payment = await pay(custPrice || price, ShopId, SecretKey);
+        console.log(JSON.stringify(payment))
 
         if (payment?.confirmation?.confirmation_url) {
             const paymenturl = payment.confirmation.confirmation_url
             const paymentId = payment.id;
 
+            let nameTaryff = ''
+            if (num === 1) {
+                nameTaryff = 'Звёзд с неба не хватает'
+            } else if (num === 2) {
+                nameTaryff = 'И папе, и маме, и другу'
+            }
 
-            await createPayment(paymentId, userId, maxGbTarryf1, subTimeTarryf1, 'taryff1');
+            createPayment(paymentId, userId, maxGbTarryf[num], subTimeTarryf, `taryff${num}`);
 
             const callbackData = `chk:${paymentId}`
-            return await safeEdit(ctx, 'Ссылка на оплату подписки "Звёзд с неба не хватает" готова:',
+            return await safeEdit(ctx, `Ссылка на оплату подписки ${nameTaryff} готова:`,
 
                 Markup.inlineKeyboard([
                     [
@@ -330,52 +336,6 @@ bot.action('tarryf1', async (ctx) => {
                 Markup.button.callback('Главное меню', 'back')
             ]]))
 
-    }
-})
-
-bot.action('tarryf2', async (ctx) => {
-    let subTimeTarryf2 = 2678400000;//31 день, длительность подписки в мс (не абсолютное время)
-    const userId = ctx.from.id;
-    //кастомная цена
-    const custPrice2 = getDatedbCustPrice(userId)?.taryff2
-    //платёж епт               выбор если каст не равен 0 то выбирается он а если 0 то деф цена
-    try {
-        const payment = await pay(custPrice2 || priceTarryf2, ShopId, SecretKey);
-
-        ctx.answerCbQuery();
-
-        if (payment?.confirmation?.confirmation_url) {
-            const paymenturl = payment.confirmation.confirmation_url
-            const paymentId = payment.id;
-
-            await createPayment(paymentId, userId, maxGbTarryf2, subTimeTarryf2, 'taryff2');
-
-            const callbackData = `chk:${paymentId}`
-            return await safeEdit(ctx, 'Ссылка на оплату подписки "И папе, и маме, и другу" готова:',
-                Markup.inlineKeyboard([
-                    [
-                        Markup.button.url('Перейти к оплате', paymenturl)
-                    ],
-                    [
-                        Markup.button.callback('Проверить оплату', callbackData)
-                    ]
-                ])
-            )
-        } else {
-            return await safeEdit(ctx, 'Произошла ошибка при создании ссылки на оплату, попробуйте позже.',
-                Markup.inlineKeyboard([
-                    [
-                        Markup.button.callback('Вернуться в меню', 'back')
-                    ]
-                ])
-            )
-        }
-    } catch (error) {
-        console.error('логика создания ссылки на оплату:', error);
-        writeLogs(error, 'логика создания ссылки на оплату');
-        return await safeEdit(ctx, 'Произошла ошибка. Попробуйте позже или обратитесь в поддержку.', Markup.inlineKeyboard([[
-            Markup.button.callback('Главное меню', 'back')
-        ]]))
     }
 })
 
@@ -414,10 +374,29 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     const newExpireAt = Date.now() + dbPayment.subTime;
                     const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId);
                     const nameTaryff = null
-                    //запись пользователя в базу
-                    if (resCreateRemnewaveUser === 'test') return
-                    await createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
+                    //запись пользователя в базы
+                    if (resCreateRemnewaveUser === 'test') {
+                        //ссылка эщкере
+                        const link = getLink(userId).link
+                        //клава выводящаяся типо
+                        const button = Markup.inlineKeyboard([[
+                            Markup.button.url('Инструкция', link)
+                        ],
+                        [
+                            { text: 'Скопировать ссылку', copy_text: { text: link } }
+                        ],
+                        [
+                            Markup.button.callback('Главное меню', 'back')
+                        ]])
 
+                        return safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b>`, {
+                            parse_mode: 'HTML',
+                            ...button
+                        })
+                    }
+                    else {
+                        await createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
+                    }
                 } else {
                     const taryff = dbUser.nameTaryff
                     const taryffPayment = dbPayment.nameTaryff
@@ -508,7 +487,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                 safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо! Тариф активируется как только закончится имеющийся</b>`, {
                     parse_mode: 'HTML',
                     ...button
-                })
+                })//код приходит сюда как после продления, так и после первой покупки, фикс + перенос на vps 
 
             } else {
                 await ctx.answerCbQuery('Платёж уже оплачен!', { show_alert: false })
@@ -545,13 +524,13 @@ bot.action('discount', async (ctx) => {
 
     const dbDiscount = await getdbDiscount(userId)
     console.log(dbDiscount)
-    if(!dbDiscount){
-    await createDiscountdb(userId, username, 20, 'test')
-    await ctx.answerCbQuery('Успешно!', {
-        show_alert: true
-    })
-    return
-}
+    if (!dbDiscount) {
+        await createDiscountdb(userId, username, 20, 'test')
+        await ctx.answerCbQuery('Успешно!', {
+            show_alert: true
+        })
+        return
+    }
     ctx.answerCbQuery('Ну всё, всё, не кликай, ты уже добавлен')
 })
 
@@ -559,15 +538,15 @@ bot.action('setupDiscount', checkOwner, (ctx) => {
     safeEdit(ctx, 'включить или выключить',
         Markup.inlineKeyboard([
             [
-                Markup.button.callback('on','onoff:on')
+                Markup.button.callback('on', 'onoff:on')
             ],
             [
-                Markup.button.callback('off','onoff:off')
+                Markup.button.callback('off', 'onoff:off')
             ],
             [
                 Markup.button.callback('Назад', 'back')
             ]
-            
+
         ]))
 })
 

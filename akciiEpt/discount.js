@@ -1,7 +1,9 @@
 const { Telegraf, Markup } = require('telegraf');
 const { checkOwnersId, safeEdit } = require('../helpers')
+const { getdbDiscount } = require('../db/dbDiscount')
+const { persent } = require('../helpers')
 
-let benefit = 1
+let benefit = 0
 
 function onoffDiscount(onoff) {
     if (onoff === 'off') {
@@ -32,16 +34,42 @@ function discount(ctx) {
 
 <i>p.s. Скидка спокойно плюсуется к скидкам при оплате за 3, 6 и 12 месяцев.</i> 🔥`
 
-        safeEdit(ctx, text,{
-            parse_mode:'HTML',
+        safeEdit(ctx, text, {
+            parse_mode: 'HTML',
             ...Markup.inlineKeyboard(buttons)
-    });
+        });
         return true
     }
     return false
 }
 
+//сумма с учётом скидки
+function takeFixPrice(ctx, num) {
+    const userId = ctx.from.id
+    const dbDiscount = getdbDiscount(userId)
+    const priceTaryff1 = 100
+    const priceTaryff2 = 250
+    let finalPrice = 0
+    if (dbDiscount) {
+        const discountPercent = dbDiscount.discountPercent
+        console.log(discountPercent);
+        if (num === 1) {
+            finalPrice = persent(priceTaryff1, discountPercent)
+        } else if (num === 2) {
+            finalPrice = persent(priceTaryff2, discountPercent)
+        }
+    }
+
+    if (Number(num) === 1) {
+        finalPrice = priceTaryff1;
+    } else if (Number(num === 2)) {
+        finalPrice = priceTaryff2;
+    }
+    return finalPrice;
+}
+
 module.exports = {
     discount,
-    onoffDiscount
+    onoffDiscount,
+    takeFixPrice
 }

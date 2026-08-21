@@ -70,9 +70,9 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, p
           await createSubdb(userId, expireAt, trafficLimitGB, 0, res.id, res.subscriptionUrl, res.uuid, username, nameTaryff, 0, 0)
 
           //перенос из базы новых данных в панель
-          await updateTimeGbTrafficTaryff(userId)
+          const data = await updateTimeGbTrafficTaryff(userId)
         }
-        return 'test'
+        return 'test'//нет вывода соо после обновы в панеле когда в базе нет юзера надо пофиксить мб чото с ретёрнами глянь
       }
       return null;
     }
