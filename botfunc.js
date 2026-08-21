@@ -3,7 +3,7 @@ const { revokeUrl } = require('./remnawave');
 const { Telegraf, Markup } = require('telegraf');
 const { writeLogs } = require('./logs/logFunc');
 const { discount } = require('./akciiEpt/discount')
-const { checkOwnersId,safeEdit } = require('./helpers')
+const { checkOwnersId, safeEdit } = require('./helpers')
 
 const pendingMessage = new Map();
 
@@ -72,7 +72,7 @@ async function getMenu(ctx) {
     }
 
     if (!dbUsers?.userId) {
-        return ctx.answerCbQuery('').catch(() => {})
+        return ctx.answerCbQuery('').catch(() => { })
     }
 
     //отображение меню если подписка закончилась
