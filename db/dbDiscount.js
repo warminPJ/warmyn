@@ -21,6 +21,7 @@ function createDiscountdb(userId, username, discountPercent = 20, source) {
 }
 
 const getUserDiscount = db.prepare('SELECT * FROM discount WHERE userId = ?');
+
 function getdbDiscount(userId){
     return getUserDiscount.get(userId)
 }

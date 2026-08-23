@@ -18,7 +18,7 @@ async function getMenu(ctx) {
     //фулл строка с данными пользователя из users
     const dbUsers = await getDateDbUsers(userId)
 
-    if (await discount(ctx)) {
+    if (discount(ctx)) {
         return
     }
 
@@ -64,9 +64,9 @@ async function getMenu(ctx) {
     //запись в переменную имени тарифа пользователя
     let nameTaryff = ''
     if (dbUsers.nameTaryff === 'taryff1') {
-        nameTaryff = 'Звёзд с неба не хватает';
+        nameTaryff = 'Бимбимбамбам';
     } else if (dbUsers.nameTaryff === 'taryff2') {
-        nameTaryff = 'И папе, и маме, и другу'
+        nameTaryff = 'Бахбах'
     } else if (dbUsers.nameTaryff === 'test') {
         nameTaryff = 'Тестовая подписка'
     }

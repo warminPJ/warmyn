@@ -21,7 +21,7 @@ function numTaryff(userId, numberTaryff){
     return
 }
 //ввод цены для тарифа
-function priceTaryff(userId, price){
+function priceTaryffFunc(userId, price){
     const userDate = taryffUsers.get(userId);
     userDate.price = price;
     console.log('цена для выбранного тарифа записана в озу');
@@ -44,6 +44,6 @@ module.exports = {
     taryffUsers,
     addUserId,
     numTaryff,
-    priceTaryff,
+    priceTaryffFunc,
     clearMap
 }

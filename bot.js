@@ -7,7 +7,7 @@ const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
 const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
 const { pay, checkPayment } = require('./payments');
 const { createRemnewaveUser, getHWIDDevices, revokeUrl, deletedDevice, updateTimeGbTrafficTaryff } = require('./remnawave')
-const { taryffUsers, addUserId, numTaryff, priceTaryff, clearMap } = require('./userIdOzu')
+const { taryffUsers, addUserId, numTaryff, priceTaryffFunc, clearMap } = require('./userIdOzu')
 const { writeLogs } = require('./logs/logFunc');
 const { createDevicesdb, deleteDevicesBySubId, saveDevicesToDb, getButtonsForUser } = require('./db/dbUserDevices');
 const { getDateDbSubscritionQueue, addSubIndb, updatedbSubscritionQueue } = require('./db/dbSubscriptionQueue')
@@ -15,12 +15,17 @@ const { linkProxy, ShopId, SecretKey, botToken } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
 const { cronCheck } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
-const { onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
+const { onoffDiscount, takeFixPrice, priceTaryff } = require('./akciiEpt/discount')
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 
 //инициализация бота
-const bot = new Telegraf(botToken)
-
+const bot = new Telegraf(botToken,
+    {
+        telegram: {
+            agent: agent
+        }
+    }
+)
 
 //обработка /start
 bot.start(async (ctx) => {
@@ -146,18 +151,46 @@ bot.action(/^true:(.+)$/, async (ctx) => {
 })
 
 bot.action('rate', async (ctx) => {
+    const userId = ctx.from.id
+    const res = getdbDiscount(userId);
     ctx.answerCbQuery();
+    const discountPersentTarryf = {
+        31: 27,
+        32: 27,
+        61: 37,
+        62: 37,
+        91: 52,
+        92: 52
+    }
     return await safeEdit(ctx, 'Выберите тариф:',
         Markup.inlineKeyboard([
             [
-                Markup.button.callback('Звёзд с неба не хватает | 100 гб', 'taryff:1')
+                Markup.button.callback('Бимбимбамбам | 100 гб', 'plug')
             ], [
-                Markup.button.callback('И папе, и маме, и другу | 300 гб', 'taryff:2')
+                Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'taryff:11'),
+                Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-15%)`, 'taryff:31')
+            ], [
+                Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-25%)`, 'taryff:61'),
+                Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-40%)`, 'taryff:91')
+            ], [
+                Markup.button.callback(`Бахбах | 300 гб`, 'plug')
+            ], [
+                Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'taryff:12'),
+                Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-15%)`, 'taryff:32')
+            ], [
+                Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 62)} руб (-25%)`, 'taryff:62'),
+                Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 92)} руб (-40%)`, 'taryff:92')
             ], [
                 Markup.button.callback('Назад', 'back')
-            ]
+            ],
         ])
     )
+//бля придумай как сделать гибкие проценты чтобы выводилось если есть в базе с кидками один працент и если нет другой
+
+})
+
+bot.action('plug', async (ctx) => {
+    await ctx.answerCbQuery('Это название тарифа').catch(() => { })
 })
 
 bot.action('admenet', checkOwner, async (ctx) => {
@@ -224,10 +257,10 @@ bot.on('text', checkOwner, async (ctx) => {
         //получение айди соо для удаления
         await safeEdit(ctx, 'Выберите тариф цену которого поменять', Markup.inlineKeyboard([
             [
-                Markup.button.callback('Звёзд с неба не хватает', 'editTaryff1')
+                Markup.button.callback('Бимбимбамбам', 'editTaryff1')
             ],
             [
-                Markup.button.callback('И папе, и маме, и другу', 'editTaryff2')
+                Markup.button.callback('Бамхбах', 'editTaryff2')
             ],
             [
                 Markup.button.callback('Назад', 'backTheTaryff')
@@ -245,7 +278,7 @@ bot.on('text', checkOwner, async (ctx) => {
         pendingMessage.delete(userId)//очистка map
 
         const price = Number(ctx.message.text);
-        await priceTaryff(userId, price);
+        await priceTaryffFunc(userId, price);
         console.log('все данные для кастомизации тарифа переданы в временный массив');
         console.log(taryffUsers)
         const userData = taryffUsers.get(userId);
@@ -272,15 +305,25 @@ bot.action('backTheTaryff', checkOwner, (ctx) => {
     openMenuAdmin(ctx);
 })
 
+
+
 bot.action(/^taryff:(.+)$/, async (ctx) => {
-    let subTimeTarryf = 2678400000;//31 день, длительность подписки в мс (не абсолютное время)
+    const subTimeTarryf = {
+        1: 2678400000,
+        3: 2678400000 * 3,
+        6: 2678400000 * 6,
+        9: 2678400000 * 12
+    };//31 день, длительность подписки в мс (не абсолютное время)
     const maxGbTarryf = {
-        1: 100, // ГБ для тарифа 1
-        2: 300, // ГБ для тарифа 2
+        1: 100,
+        2: 300
     };
 
     const userId = ctx.from.id;
     const num = ctx.match[1]
+    console.log('оно ', num)
+    const lastNum = Math.abs(num) % 10;
+    const firstChar = Number(String(num)[0])
     const dbCustPrice = getDatedbCustPrice(userId)
     //кастомная цена
     const custPrice = dbCustPrice?.[`taryff${num}`]
@@ -296,16 +339,16 @@ bot.action(/^taryff:(.+)$/, async (ctx) => {
             const paymentId = payment.id;
 
             let nameTaryff = ''
-            if (num === 1) {
-                nameTaryff = 'Звёзд с неба не хватает'
-            } else if (num === 2) {
-                nameTaryff = 'И папе, и маме, и другу'
+            if (lastNum === 1) {
+                nameTaryff = 'Бимбимбамбам'
+            } else if (lastNum === 2) {
+                nameTaryff = 'Бахбах'
             }
 
-            createPayment(paymentId, userId, maxGbTarryf[num], subTimeTarryf, `taryff${num}`);
+            createPayment(paymentId, userId, maxGbTarryf[lastNum]/*мб lastNum временная переменная до логики сброса гб каждый месяц */, subTimeTarryf[firstChar], `taryff${num}`);
 
-            const callbackData = `chk:${paymentId}`
-            return await safeEdit(ctx, `Ссылка на оплату подписки ${nameTaryff} готова:`,
+            const callbackData = `chk: ${paymentId}`
+            return await safeEdit(ctx, `Ссылка на оплату подписки ${nameTaryff} готова: `,
 
                 Markup.inlineKeyboard([
                     [
@@ -386,7 +429,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                             Markup.button.callback('Главное меню', 'back')
                         ]])
 
-                        return safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b>`, {
+                        return safeEdit(ctx, `Успешно! Ваша ссылка: \n < pre > <code>${link}</code></pre >\n < b > Спасибо, за то что продолжаете выбирать нас!</b > `, {
                             parse_mode: 'HTML',
                             ...button
                         })
@@ -406,7 +449,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                         Markup.button.callback('Главное меню', 'back')
                     ]])
 
-                    return safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b>`, {
+                    return safeEdit(ctx, `Успешно! Ваша ссылка: \n < pre > <code>${link}</code></pre >\n < b > Спасибо, за то что продолжаете выбирать нас!</b > `, {
                         parse_mode: 'HTML',
                         ...button
                     })
@@ -498,7 +541,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     Markup.button.callback('Главное меню', 'back')
                 ]])
 
-                safeEdit(ctx, `Успешно! Ваша ссылка: \n<pre><code>${link}</code></pre>\n<b>Спасибо! Тариф активируется как только закончится имеющийся</b>`, {
+                safeEdit(ctx, `Успешно! Ваша ссылка: \n < pre > <code>${link}</code></pre >\n < b > Спасибо! Тариф активируется как только закончится имеющийся</b > `, {
                     parse_mode: 'HTML',
                     ...button
                 })
@@ -539,13 +582,29 @@ bot.action('discount', async (ctx) => {
     const dbDiscount = await getdbDiscount(userId)
     console.log(dbDiscount)
     if (!dbDiscount) {
-        await createDiscountdb(userId, username, 20, 'test')
+        await createDiscountdb(userId, username, 12, 'test')
         await ctx.answerCbQuery('Успешно!', {
             show_alert: true
         })
         return
     }
     ctx.answerCbQuery('Ну всё, всё, не кликай, ты уже добавлен')
+})
+
+bot.action('watchTaryff', (ctx) => {
+    safeEdit(ctx, `Тарифы с учётом скидки:
+                    `, Markup.inlineKeyboard([
+        [
+            Markup.button.callback('Чивоооо?', 'chivo')
+        ],
+        [
+            Markup.button.callback('Назад', 'back')
+        ]
+    ]))
+})
+
+bot.action('chivo', (ctx) => {
+    ctx.answerCbQuery('Чивоооо?')
 })
 
 bot.action('setupDiscount', checkOwner, (ctx) => {
