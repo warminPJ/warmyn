@@ -21,7 +21,7 @@ function discount(ctx) {
             [
                 Markup.button.callback('Забронировать скидку', 'discount')
             ], [
-                Markup.button.callback('Посмотреть тарифы', 'watchTaryff')
+                Markup.button.callback('Посмотреть тарифы', 'rate:2')
             ]]
 
         if (checkOwnersId(ctx)) {
@@ -34,7 +34,7 @@ function discount(ctx) {
 
 Жми кнопку внизу, чтобы закрепить её за своим аккаунтом 👇
 
-<i>p.s. Скидка спокойно плюсуется к скидкам при оплате за 3, 6 и 12 месяцев.</i> 🔥`
+<i>p.s. Скидка спокойно плюсуется к скидкам при оплате за 3, 6 и 12 месяцев🔥 \nА ещё вы можете сравнить цены до брони скидки и после в "Посмотреть тарифы"</i> `
 
         safeEdit(ctx, text, {
             parse_mode: 'HTML',

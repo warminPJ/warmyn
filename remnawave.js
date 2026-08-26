@@ -72,7 +72,7 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, p
           //перенос из базы новых данных в панель
           const data = await updateTimeGbTrafficTaryff(userId)
         }
-        return 'test'//нет вывода соо после обновы в панеле когда в базе нет юзера надо пофиксить мб чото с ретёрнами глянь
+        return 'test'// логика если есть в панеле но нет в базе
       }
       return null;
     }
@@ -87,6 +87,27 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, p
     //запись логов в отдельный файл
     writeLogs(error, '|создание пользователя в панеле remnawave|')
     return null;
+  }
+}
+
+async function takeEmergencyTaryff(uuid, expireAt, maxGB = 200 * 1024 * 1024) {
+  const options = {
+    method: 'PATCH',
+    url: createLegitUrl(`/api/users`),
+    headers: {
+      Authorization: `Bearer ${remnawaveToken}`
+    },
+    data: {
+    trafficLimitBytes: maxGB,
+    expireAt,
+    uuid
+    }
+  }
+  try {
+    const { data } = await axios.request(options)
+  } catch(er){
+    console.error(er);
+    writeLogs(er, 'takeEmergencyTaryff')
   }
 }
 
@@ -211,5 +232,6 @@ module.exports = {
   revokeUrl,
   deletedDevice,
   updateTimeGbTrafficTaryff,
-  getUuidByTelegramId
+  getUuidByTelegramId,
+  takeEmergencyTaryff
 }

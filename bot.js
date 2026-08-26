@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const { getMenu, priceComparison, checkOwner, openMenuAdmin, pendingMessage } = require('./botfunc');
+const { getMenu, priceComparison, checkOwner, openMenuAdmin, pendingMessage, outputMsg } = require('./botfunc');
 const { createPayment, dontTouch, markPaymentDone, markPaymentError } = require('./db/dbPayment')
 const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
 const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
@@ -150,43 +150,18 @@ bot.action(/^true:(.+)$/, async (ctx) => {
     ]));
 })
 
-bot.action('rate', async (ctx) => {
+bot.action(/^rate(?::(.+))?$/, async (ctx) => {
     const userId = ctx.from.id
-    const res = getdbDiscount(userId);
+    const dbDiscount = getdbDiscount(userId);
+    const flag = Number(ctx.match[1])
     ctx.answerCbQuery();
-    const discountPersentTarryf = {
-        31: 27,
-        32: 27,
-        61: 37,
-        62: 37,
-        91: 52,
-        92: 52
+    if (flag === 2) {
+        return outputMsg(ctx, 2)
     }
-    return await safeEdit(ctx, 'Выберите тариф:',
-        Markup.inlineKeyboard([
-            [
-                Markup.button.callback('Бимбимбамбам | 100 гб', 'plug')
-            ], [
-                Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'taryff:11'),
-                Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-15%)`, 'taryff:31')
-            ], [
-                Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-25%)`, 'taryff:61'),
-                Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-40%)`, 'taryff:91')
-            ], [
-                Markup.button.callback(`Бахбах | 300 гб`, 'plug')
-            ], [
-                Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'taryff:12'),
-                Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-15%)`, 'taryff:32')
-            ], [
-                Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 62)} руб (-25%)`, 'taryff:62'),
-                Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 92)} руб (-40%)`, 'taryff:92')
-            ], [
-                Markup.button.callback('Назад', 'back')
-            ],
-        ])
-    )
-//бля придумай как сделать гибкие проценты чтобы выводилось если есть в базе с кидками один працент и если нет другой
-
+    if (dbDiscount?.discountPercent === 12) {
+        return outputMsg(ctx, 1)
+    }
+    return outputMsg(ctx)
 })
 
 bot.action('plug', async (ctx) => {
@@ -309,14 +284,15 @@ bot.action('backTheTaryff', checkOwner, (ctx) => {
 
 bot.action(/^taryff:(.+)$/, async (ctx) => {
     const subTimeTarryf = {
-        1: 2678400000,
-        3: 2678400000 * 3,
-        6: 2678400000 * 6,
-        9: 2678400000 * 12
+        1: 30000,
+        3: 2592000000 * 3,
+        6: 2592000000 * 6,
+        9: 2592000000 * 12
     };//31 день, длительность подписки в мс (не абсолютное время)
-    const maxGbTarryf = {
-        1: 100,
-        2: 300
+
+    const maxGbTarryf = {//редактирование максимум колва гб
+        1: 0,
+        2: 0
     };
 
     const userId = ctx.from.id;
@@ -345,9 +321,9 @@ bot.action(/^taryff:(.+)$/, async (ctx) => {
                 nameTaryff = 'Бахбах'
             }
 
-            createPayment(paymentId, userId, maxGbTarryf[lastNum]/*мб lastNum временная переменная до логики сброса гб каждый месяц */, subTimeTarryf[firstChar], `taryff${num}`);
+            createPayment(paymentId, userId, maxGbTarryf[lastNum], subTimeTarryf[firstChar], `taryff${num}`);
 
-            const callbackData = `chk: ${paymentId}`
+            const callbackData = `chk:${paymentId}`
             return await safeEdit(ctx, `Ссылка на оплату подписки ${nameTaryff} готова: `,
 
                 Markup.inlineKeyboard([
@@ -429,12 +405,13 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                             Markup.button.callback('Главное меню', 'back')
                         ]])
 
-                        return safeEdit(ctx, `Успешно! Ваша ссылка: \n < pre > <code>${link}</code></pre >\n < b > Спасибо, за то что продолжаете выбирать нас!</b > `, {
+                        return safeEdit(ctx, `Успешно! Ваша ссылка: \n <pre> <code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b> `, {
                             parse_mode: 'HTML',
                             ...button
                         })
                     }
                     else {
+                        //создание пользователя если его уже нет в панеле
                         await createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
                     }
                     const link = getLink(userId).link
@@ -449,7 +426,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                         Markup.button.callback('Главное меню', 'back')
                     ]])
 
-                    return safeEdit(ctx, `Успешно! Ваша ссылка: \n < pre > <code>${link}</code></pre >\n < b > Спасибо, за то что продолжаете выбирать нас!</b > `, {
+                    return safeEdit(ctx, `Успешно! Ваша ссылка: \n <pre> <code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b> `, {
                         parse_mode: 'HTML',
                         ...button
                     })
@@ -457,6 +434,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                 } else {
                     const taryff = dbUser.nameTaryff
                     const taryffPayment = dbPayment.nameTaryff
+                    //логика если покупают допом такой же тариф или продлевают до окончания
                     if (taryff === taryffPayment) {
                         //обновление максимального колва гб в базе
                         const newMaxGb = dbUser.maxGB + dbPayment.maxGB
@@ -499,7 +477,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                         } else {
                             //если нет подписки в очереди
                             //если подписка уже закончилась
-                            if (dbUser.notified1h === 2) {
+                            if (dbUser.notified1h === 2 || dbUser.notified1h === 3) {
                                 //новое число гб из оплаты
                                 const newMaxGb = dbPayment.maxGB
                                 await updatedbUsers('maxGB', 'userId', newMaxGb, userId)
@@ -518,6 +496,23 @@ bot.action(/^chk:(.+)/, async (ctx) => {
 
                                 //обновление в панельке
                                 updateTimeGbTrafficTaryff(userId);
+
+                                const link = getLink(userId).link
+                                //клава выводящаяся типо
+                                const button = Markup.inlineKeyboard([[
+                                    Markup.button.url('Инструкция', link)
+                                ],
+                                [
+                                    { text: 'Скопировать ссылку', copy_text: { text: link } }
+                                ],
+                                [
+                                    Markup.button.callback('Главное меню', 'back')
+                                ]])
+
+                                return safeEdit(ctx, `Успешно! Ваша ссылка: \n <pre> <code>${link}</code></pre>\n<b>Спасибо, за то что продолжаете выбирать нас!</b> `, {
+                                    parse_mode: 'HTML',
+                                    ...button
+                                })
 
                             } else {
                                 const subTime = dbPayment.subTime
@@ -541,7 +536,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     Markup.button.callback('Главное меню', 'back')
                 ]])
 
-                safeEdit(ctx, `Успешно! Ваша ссылка: \n < pre > <code>${link}</code></pre >\n < b > Спасибо! Тариф активируется как только закончится имеющийся</b > `, {
+                safeEdit(ctx, `Успешно! Ваша ссылка: \n <pre> <code>${link}</code></pre>\n<b>Спасибо! Тариф активируется как только закончится имеющийся</b> `, {
                     parse_mode: 'HTML',
                     ...button
                 })
@@ -591,20 +586,17 @@ bot.action('discount', async (ctx) => {
     ctx.answerCbQuery('Ну всё, всё, не кликай, ты уже добавлен')
 })
 
-bot.action('watchTaryff', (ctx) => {
-    safeEdit(ctx, `Тарифы с учётом скидки:
-                    `, Markup.inlineKeyboard([
-        [
-            Markup.button.callback('Чивоооо?', 'chivo')
-        ],
-        [
-            Markup.button.callback('Назад', 'back')
-        ]
-    ]))
-})
 
-bot.action('chivo', (ctx) => {
-    ctx.answerCbQuery('Чивоооо?')
+bot.action(/^chivo:(.+)/, (ctx) => {
+    const num = Number(ctx.match[1])
+    if (num === 1) {
+        ctx.answerCbQuery('Чиво?')
+    } else if (num === 2) {
+        ctx.answerCbQuery('Чивоо?')
+    } else if (num === 3) {
+        ctx.answerCbQuery('Чивооо?')
+    } else
+        ctx.answerCbQuery('Чивоооо?')
 })
 
 bot.action('setupDiscount', checkOwner, (ctx) => {
@@ -621,6 +613,11 @@ bot.action('setupDiscount', checkOwner, (ctx) => {
             ]
 
         ]))
+})
+
+bot.action('stop', (ctx) => {
+    const userId = ctx.from.id;
+    //затести штуку с ограницением скорости после истечения подписки и допиши логику с приостановкой подписки
 })
 
 bot.action(/^onoff:(.+)/, checkOwner, (ctx) => {

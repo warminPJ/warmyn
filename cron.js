@@ -1,11 +1,13 @@
 const cron = require('node-cron');
-const { db, updatedbUsers } = require('./db/dbUsers');
+const { db, updatedbUsers, getDateDbUsers } = require('./db/dbUsers');
 const { Markup } = require('telegraf');
 const { writeLogs } = require('./logs/logFunc');
 const { getDateDbSubscritionQueue, deleteSubscritionQueue } = require('./db/dbSubscriptionQueue');
-const { updateTimeGbTrafficTaryff } = require('./remnawave');
+const { updateTimeGbTrafficTaryff, takeEmergencyTaryff } = require('./remnawave');
 const { makeCtx } = require('./botfunc')
 const { safeDelete, safeEdit } = require('./helpers')
+
+const pendingMessage = new Map()
 
 //ctx тут без контекста тоесть используется чисто для импорта функций а не получения инфы
 async function cronCheck(bot) {
@@ -47,17 +49,17 @@ async function cronCheck(bot) {
                 }
 
             }
-            //увед об окончании
+            //увед об окончании и включения аварийного режима
             const userToNotifyEnd = db.prepare(`
                 SELECT * FROM users
                 WHERE subTime <= ?
                 AND notified1h = 1`).all(now)
             for (const user of userToNotifyEnd) {
                 const userId = user.userId;
-                console.log(`userId ${userId}!`);
+                const dbUser = getDateDbUsers(userId)
                 if (userId) {
                     //эта хуйня обьект, аккуратнее если чото тут пишешь
-                    const queue = await getDateDbSubscritionQueue(userId)
+                    const queue = getDateDbSubscritionQueue(userId)
 
                     //проверка если нету очереди
                     if (!queue || queue.length === 0) {
@@ -69,59 +71,114 @@ async function cronCheck(bot) {
                         //удаление соо уведа за час до окончания
                         safeDelete(ctxCustom, messageId, userId);
 
+                        const expuredAt = 60 * 1000/*7 дней */ + Date.now()
+                        const expired_at = new Date(expuredAt).toISOString()
+                        console.log(expired_at)
+
+                        updatedbUsers('subTime', 'userId', expuredAt, userId);//обновление времени в базе
+
+                        const maxGB = 200 * 1024 * 1024 //200 мб
+                        updatedbUsers('maxGB', 'userId', maxGB, userId);//обновление гб в базе
+
+                        updatedbUsers('nameTaryff', 'userId', 'taryff3', userId)//обновление названия тарифа в базе
+                        takeEmergencyTaryff(dbUser.uuid, expired_at, maxGB);
+
                         //очистка map
                         pendingMessage.delete(userId)
 
-                        await bot.telegram.sendMessage(userId, '**Ваша подписка закончилась!** Оплатите следующую чтобы оставаться на связи',
+                        await bot.telegram.sendMessage(userId, '**Ваша подписка закончилась!** Оплатите следующую чтобы оставаться на связи\nСейчас вам доступна подписка на 200 мб сроком на 7 дней',
                             {
                                 parse_mode: 'Markdown',
-                                ...Markup.inlineKeyboard([
+                                ...Markup.inlineKeyboard([[
                                     Markup.button.callback('Купить подписку', 'rate')
-                                ])
+                                ],
+                                [
+                                    Markup.button.callback('Позже', 'back')
+                                ]])
                             })
                         db.prepare('UPDATE users SET notified1h = 2 WHERE userId = ?').run(userId)
                         return
+                    } else {
+                        //если есть подписка в очереди
+                        //активация подписки из очереди
+                        transferFromQueue(userId)
                     }
-                    //если есть
-                    //активация подписки из очереди
-                    //новое колво гб
-                    const dbSubscritionQueueobj = await getDateDbSubscritionQueue(userId);
-                    const dbSubscritionQueue = dbSubscritionQueueobj[0]
-                    console.log('обьект:', dbSubscritionQueue);
-                    const newMaxGB = dbSubscritionQueue.maxGB;
-                    await updatedbUsers('maxGB', 'userId', newMaxGB, userId)
-
-                    //время в миллисекундах - dbSubscritionQueue.subTime хранит длительность подписки
-                    const newSubTime = dbSubscritionQueue.subTime + Date.now();
-                    await updatedbUsers('subTime', 'userId', newSubTime, userId);
-                    const newTaryff = dbSubscritionQueue.nameTaryff
-                    await updatedbUsers('nameTaryff', 'userId', newTaryff, userId)
-
-                    //обновление в панеле
-                    updateTimeGbTrafficTaryff(userId);
-
-                    //чистка после активации
-                    deleteSubscritionQueue(userId);
-
-                    //очистка map
-                    pendingMessage.delete(userId)
-                    await bot.telegram.sendMessage(userId, '**Ваш новый тариф был активирован!** Спасибо что остаётесь с нами',
-                        {
-                            parse_mode: 'Markdown',
-                            ...Markup.inlineKeyboard([
-                                Markup.button.callback('Главное меню', 'back')
-                            ])
-                        })
-                    db.prepare('UPDATE users SET notified1h = 0 WHERE userId = ?').run(userId)
                 }
+
             }
 
+            //логика если закончилась 7 дневная подписка на оплату
+            const userToNotifyLastEnd = db.prepare(`
+                SELECT * FROM users
+                WHERE subTime <= ?
+                AND notified1h = 2`).all(now)
+            for (const user of userToNotifyLastEnd) {
+                const userId = user.userId
+                if (userId) {
+                    //Эта хуйня обьект аккуратнее с ним
+                    const queue = getDateDbSubscritionQueue(userId);
+                    //если нету очереди
+                    if (!queue || queue.length === 0) {
+                        
+                        await bot.telegram.sendMessage(userId, '**Ваша подписка на 7 дней для оплаты истекла** \nОплатите чтобы оставаться на связи',
+                            {
+                                parse_mode: 'Markdown',
+                                ...Markup.inlineKeyboard([[
+                                    Markup.button.callback('Купить подписку', 'rate')
+                                ],
+                                [
+                                    Markup.button.callback('Ок', 'back')
+                                ]])
+                            })
+                        db.prepare('UPDATE users SET notified1h = 3 WHERE userId = ?').run(userId)
+                        //допиши логику с 3 в базе обозачающей окончательный обрыв всех тарифов
+                        return
+                    }else{
+                        //если есть подписка в очереди
+                        transferFromQueue(userId)
+                    }
+                }
+            }
             console.log('cron во')
         } catch (error) {
             writeLogs(error, 'cron');
             console.error('ошибка крон', error);
         }
     })
+}
+
+async function transferFromQueue(userId) {
+
+    //новое колво гб
+    const dbSubscritionQueueobj = getDateDbSubscritionQueue(userId);
+    const dbSubscritionQueue = dbSubscritionQueueobj[0]
+    console.log('обьект:', dbSubscritionQueue);
+    const newMaxGB = dbSubscritionQueue.maxGB;
+    updatedbUsers('maxGB', 'userId', newMaxGB, userId)
+
+    //время в миллисекундах - dbSubscritionQueue.subTime хранит длительность подписки
+    const newSubTime = dbSubscritionQueue.subTime + Date.now();
+    updatedbUsers('subTime', 'userId', newSubTime, userId);
+
+    const newTaryff = dbSubscritionQueue.nameTaryff
+    updatedbUsers('nameTaryff', 'userId', newTaryff, userId)
+
+    //обновление в панеле
+    updateTimeGbTrafficTaryff(userId);
+
+    //чистка после активации
+    deleteSubscritionQueue(userId);
+
+    //очистка map
+    pendingMessage.delete(userId)
+    await bot.telegram.sendMessage(userId, '**Ваш новый тариф был активирован!** Спасибо что остаётесь с нами',
+        {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+                Markup.button.callback('Главное меню', 'back')
+            ])
+        })
+    db.prepare('UPDATE users SET notified1h = 0 WHERE userId = ?').run(userId)
 }
 
 module.exports = { cronCheck }

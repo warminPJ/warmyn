@@ -2,7 +2,7 @@ const { db, getLink, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
 const { revokeUrl } = require('./remnawave');
 const { Telegraf, Markup } = require('telegraf');
 const { writeLogs } = require('./logs/logFunc');
-const { discount } = require('./akciiEpt/discount')
+const { discount, takeFixPrice } = require('./akciiEpt/discount')
 const { checkOwnersId, safeEdit } = require('./helpers')
 
 const pendingMessage = new Map();
@@ -61,27 +61,34 @@ async function getMenu(ctx) {
         );
     }
 
-    //запись в переменную имени тарифа пользователя
-    let nameTaryff = ''
-    if (dbUsers.nameTaryff === 'taryff1') {
-        nameTaryff = 'Бимбимбамбам';
-    } else if (dbUsers.nameTaryff === 'taryff2') {
-        nameTaryff = 'Бахбах'
-    } else if (dbUsers.nameTaryff === 'test') {
-        nameTaryff = 'Тестовая подписка'
-    }
+
+
+    const tariffMap = {
+        '1': 'Бимбимбамбам',
+        '2': 'Бахбах',
+        '3': 'Ограниченная(для оплаты)'
+    };
+
+    const rawTariff = dbUsers.nameTaryff;
+    const lastNum = String(rawTariff).slice(-1);
+
+    const nameTaryff = rawTariff === 'test'
+        ? 'Тестовая подписка'
+        : (tariffMap[lastNum] || '');
 
     if (!dbUsers?.userId) {
         return ctx.answerCbQuery('').catch(() => { })
     }
 
-    //отображение меню если подписка закончилась
+    //отображение меню если подписка закончилась и включилась временная
     if (dbUsers.notified1h === 2) {
 
         const buttons = [
             [
                 Markup.button.callback('Купить подписку', 'rate')
-            ]]//поддержку барнуть сюда
+            ], [
+                Markup.button.callback('Обновить', 'back')
+            ]]//поддержку бахнуть сюда
 
         if (checkOwnersId(ctx)) {
             buttons.push([Markup.button.callback('админка', 'admenet')])
@@ -89,7 +96,26 @@ async function getMenu(ctx) {
 
         return safeEdit(ctx, `
             Тариф: "${nameTaryff}"\n` +
-            `Время подписки истекло, купите новую, чтобы вернуть доступ`, {
+            `Время истекло, купите новую, чтобы вернуть доступ\n` +
+            `<b>Осталось дней для оплаты: ${daysLeft}</b>`, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(buttons)
+        })
+    }
+    
+    if(dbUsers.notified1h === 3){
+        
+        const buttons = [
+            [
+                Markup.button.callback('Купить подписку', 'rate')
+            ]]//поддержку бахнуть сюда
+
+        if (checkOwnersId(ctx)) {
+            buttons.push([Markup.button.callback('админка', 'admenet')])
+        }
+
+        return safeEdit(ctx,
+            `Оплатите подписку, чтобы пользоваться Warmyn\n`, {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard(buttons)
         })
@@ -97,7 +123,11 @@ async function getMenu(ctx) {
 
 
     const buttons = [[
+        Markup.button.url('Инструкция', link.link),
         Markup.button.callback('Мои устройства', 'devices')
+    ],
+    [
+        Markup.button.callback('Продлить подписку', 'rate')
     ],
     [
         Markup.button.callback('Перевыпустить ссылку', 'sub:rev')
@@ -106,10 +136,8 @@ async function getMenu(ctx) {
         { text: 'Скопировать ссылку', copy_text: { text: link.link } }
     ],
     [
-        Markup.button.callback('Продлить подписку', 'rate')
-    ],
-    [
-        Markup.button.url('Инструкция', link.link)
+
+        Markup.button.callback('Приостановить подписку', 'stop')
     ]]
 
     if (checkOwnersId(ctx)) {
@@ -123,6 +151,82 @@ async function getMenu(ctx) {
     );
 }
 
+
+async function outputMsg(ctx, flag = 0) {
+    if (flag === 1) {
+        return await safeEdit(ctx, 'Выберите тариф:',
+            Markup.inlineKeyboard([
+                [
+                    Markup.button.callback('Бимбимбамбам | ♾️ гб', 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'taryff:11'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-27%)`, 'taryff:31')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-37%)`, 'taryff:61'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-52%)`, 'taryff:91')
+                ], [
+                    Markup.button.callback(`Бахбах | ♾️ гб`, 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'taryff:12'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-27%)`, 'taryff:32')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 62)} руб (-37%)`, 'taryff:62'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 92)} руб (-52%)`, 'taryff:92')
+                ], [
+                    Markup.button.callback('Назад', 'back')
+                ],
+            ])
+        )
+    } else if (flag === 2) {
+        return await safeEdit(ctx, 'Цены на тарифы:',
+            Markup.inlineKeyboard([
+                [
+                    Markup.button.callback('Бимбимбамбам | ♾️ гб', 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'chivo:1'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-27%)`, 'chivo:2')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-37%)`, 'chivo:3'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-52%)`, 'chivo:4')
+                ], [
+                    Markup.button.callback(`Бахбах | ♾️ гб`, 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'chivo:1'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-27%)`, 'chivo:2')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 62)} руб (-37%)`, 'chivo:3'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 92)} руб (-52%)`, 'chivo:4')
+                ], [
+                    Markup.button.callback('Назад', 'back')
+                ],
+            ])
+        )
+    } else {
+        return await safeEdit(ctx, 'Выберите тариф:',
+            Markup.inlineKeyboard([
+                [
+                    Markup.button.callback('Бимбимбамбам | ♾️ гб', 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'taryff:11'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-15%)`, 'taryff:31')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-25%)`, 'taryff:61'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-40%)`, 'taryff:91')
+                ], [
+                    Markup.button.callback(`Бахбах | ♾️ гб`, 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'taryff:12'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-15%)`, 'taryff:32')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 62)} руб (-25%)`, 'taryff:62'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 92)} руб (-40%)`, 'taryff:92')
+                ], [
+                    Markup.button.callback('Назад', 'back')
+                ],
+            ])
+        )
+    }
+}
 
 function priceComparison(userId, numTarryf) {
     const column = `taryff${numTarryf}`;
@@ -182,5 +286,6 @@ module.exports = {
     openMenuAdmin,
     checkOwnersId,
     pendingMessage,
-    makeCtx
+    makeCtx,
+    outputMsg
 }
