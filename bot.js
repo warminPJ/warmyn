@@ -19,7 +19,12 @@ const { onoffDiscount, takeFixPrice, priceTaryff } = require('./akciiEpt/discoun
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 
 //инициализация бота
-const bot = new Telegraf(botToken
+const bot = new Telegraf(botToken,
+    {
+        telegram: {
+            agent: agent
+        }
+    }
 )
 
 //обработка /start
