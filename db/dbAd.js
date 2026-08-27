@@ -3,7 +3,7 @@ const db = new Datebase('base.db');
 
 db.exec(`CREATE TABLE IF NOT EXISTS ad (
     source TEXT PRIMARY KEY,
-    c INTEGER,
+    sumUser INTEGER,
     resultLink TEXT,
     name TEXT DEFAULT 'not',
     createdAt INTEGER DEFAULT CURRENT_TIMESTAMP
