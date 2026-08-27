@@ -4,6 +4,7 @@ const { Telegraf, Markup } = require('telegraf');
 const { writeLogs } = require('./logs/logFunc');
 const { discount, takeFixPrice } = require('./akciiEpt/discount')
 const { checkOwnersId, safeEdit } = require('./helpers')
+const { getdbDiscount } = require('./db/dbDiscount')
 
 const pendingMessage = new Map();
 
@@ -47,9 +48,6 @@ async function getMenu(ctx) {
             ],
             [
                 Markup.button.callback('Попробовать бесплатно', 'watchDemo')
-            ],
-            [
-                Markup.button.callback('test', 'discount')
             ]
         ];
 
@@ -206,6 +204,33 @@ async function outputMsg(ctx, flag = 0) {
             ])
         )
     } else if (flag === 2) {
+        const userId = ctx.from.id;
+        console.log('ye')
+        const dbDiscount = getdbDiscount(userId);
+        if(!dbDiscount){
+        return await safeEdit(ctx, 'Цены на тарифы:',
+            Markup.inlineKeyboard([
+                [
+                    Markup.button.callback('Бимбимбамбам | ♾️ гб', 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'chivo:1'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-15%)`, 'chivo:2')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-25%)`, 'chivo:3'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-40%)`, 'chivo:4')
+                ], [
+                    Markup.button.callback(`Бахбах | ♾️ гб`, 'plug')
+                ], [
+                    Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'chivo:1'),
+                    Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-15%)`, 'chivo:2')
+                ], [
+                    Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 62)} руб (-25%)`, 'chivo:3'),
+                    Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 92)} руб (-40%)`, 'chivo:4')
+                ], [
+                    Markup.button.callback('Назад', 'back')
+                ],
+            ])
+        )}else{
         return await safeEdit(ctx, 'Цены на тарифы:',
             Markup.inlineKeyboard([
                 [
@@ -228,7 +253,7 @@ async function outputMsg(ctx, flag = 0) {
                     Markup.button.callback('Назад', 'back')
                 ],
             ])
-        )
+        )}
     } else {
         return await safeEdit(ctx, 'Выберите тариф:',
             Markup.inlineKeyboard([
@@ -273,7 +298,7 @@ async function checkOwner(ctx, next) {
 }
 
 function openMenuAdmin(ctx) {
-    return ctx.editMessageText('Та самая крутая админка:',
+    return safeEdit(ctx,'Та самая крутая админка:',
         Markup.inlineKeyboard([
             [
                 Markup.button.callback('касттариф', 'custTarryf')
@@ -283,6 +308,9 @@ function openMenuAdmin(ctx) {
             ],
             [
                 Markup.button.callback('вкл/выкл пребай', 'setupDiscount')
+            ],
+            [
+                Markup.button.callback('добавить рефку', 'addRef')
             ]
         ])
     )

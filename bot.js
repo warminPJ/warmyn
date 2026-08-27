@@ -11,20 +11,36 @@ const { taryffUsers, addUserId, numTaryff, priceTaryffFunc, clearMap } = require
 const { writeLogs } = require('./logs/logFunc');
 const { createDevicesdb, deleteDevicesBySubId, saveDevicesToDb, getButtonsForUser } = require('./db/dbUserDevices');
 const { getDateDbSubscritionQueue, addSubIndb, updatedbSubscritionQueue } = require('./db/dbSubscriptionQueue')
-const { linkProxy, ShopId, SecretKey, botToken } = process.env
+const { linkProxy, ShopId, SecretKey, botToken, defLinkTgBot } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
 const { cronCheck, stopReset } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
 const { onoffDiscount, takeFixPrice, priceTaryff } = require('./akciiEpt/discount')
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
+const { updatedbAd, getdbAd, createAd, createRef, mapCreateRef } = require('./db/dbAd')
 
 //инициализация бота
-const bot = new Telegraf(botToken
+const bot = new Telegraf(botToken,
+    {
+        telegram: {
+            agent: agent
+        }
+    }
 )
 
 //обработка /start
-bot.start(async (ctx) => {
-    const userId = ctx.from.id;
+bot.start((ctx) => {
+    const payload = ctx.payload;
+    console.log(payload)
+    if (payload) {
+        console.log(payload)
+
+        //получение актеального числа перешедших
+        const newSumUser = getdbAd(payload).sumUser + 1
+        console.log(newSumUser)
+        //обновление колва перешедших по рефке
+        updatedbAd('sumUser', 'source', newSumUser, payload);
+    }
     getMenu(ctx);
 })
 
@@ -163,6 +179,20 @@ bot.action('plug', async (ctx) => {
     await ctx.answerCbQuery('Это название тарифа').catch(() => { })
 })
 
+bot.action('addRef', checkOwner, async (ctx) => {
+    const userId = ctx.from.id
+    ctx.answerCbQuery();
+
+    safeDelete(ctx)
+
+    const messageId = await safeEdit(ctx, 'Введите реферальное значение которое нужно добавить:',
+        Markup.forceReply()
+    )
+
+    //запись айди соо в map
+    pendingMessage.set(userId, messageId.message_id)
+})
+
 bot.action('admenet', checkOwner, async (ctx) => {
     ctx.answerCbQuery();
     await openMenuAdmin(ctx)
@@ -217,8 +247,10 @@ bot.on('text', checkOwner, async (ctx) => {
 
         //получение айди соо 'Введите айди пользователя для каста его тарифа:'
         const idDeleteMessage = pendingMessage.get(userId)
+
         //удаление соо 'Введите айди пользователя для каста его тарифа:'
         await safeDelete(ctx, idDeleteMessage, userId);
+
         pendingMessage.delete(userId)//очистка map
 
         const userIdTar = Number(ctx.message.text);
@@ -243,8 +275,10 @@ bot.on('text', checkOwner, async (ctx) => {
 
         //получение айди соо 'Введите айди пользователя для каста его тарифа:'
         const idDeleteMessage = pendingMessage.get(userId)
+
         //удаление соо 'Введите айди пользователя для каста его тарифа:'
         await safeDelete(ctx, idDeleteMessage, userId);
+
         pendingMessage.delete(userId)//очистка map
 
         const price = Number(ctx.message.text);
@@ -259,18 +293,73 @@ bot.on('text', checkOwner, async (ctx) => {
         const userIdTar = userData.userIdTar;
         const tariffPrice = userData.price;
         const numberTaryff = userData.numberTaryff;
+
         console.log(numberTaryff)
+
         await tariffRecord(userIdTar, tariffPrice, numberTaryff);
+
         console.log('касттариф записан в базу данных');
+
         safeEdit(ctx, 'Дело в шляпе', Markup.inlineKeyboard([
             Markup.button.callback('Назад', 'backTheTaryff')
         ]))
+    }
+    if (replyTo && replyTo.text === 'Введите реферальное значение которое нужно добавить:') {
+        await safeDelete(ctx)
+
+        //получение айди соо 'Введите реферальное значение которое нужно добавить:'
+        const idDeleteMessage = pendingMessage.get(userId)
+
+        //удаление соо 'Введите реферальное значение которое нужно добавить:'
+        await safeDelete(ctx, idDeleteMessage, userId);
+
+        pendingMessage.delete(userId)//очистка map
+
+        //рефка от адменет
+        const ref = ctx.message.text.trim();
+
+        //создание рефки в базе
+        const resLink = `${defLinkTgBot}?start=${encodeURIComponent(ref)}`;
+
+        //создание рефки без нейма(он дальше) в map()
+        mapCreateRef.set(userId, {
+            source: ref,
+            sumUser: 0,
+            resultLink: resLink,
+            name: 'no'
+        })
+
+        safeEdit(ctx, 'Введите имя для этой рефки(понятное, можно на русском)',
+            Markup.forceReply()
+        )
+    }
+    if (replyTo && replyTo.text === 'Введите имя для этой рефки(понятное, можно на русском)') {
+        const name = ctx.message.text.trim();
+        const draft = mapCreateRef.get(userId);
+
+        if (draft) {
+
+            draft.name = name;
+
+            //запись в базу рефки
+            createRef(draft.source, draft.sumUser, draft.resultLink, draft.name)
+
+            //вывод обьекта
+            const log = JSON.stringify(draft)
+            console.log(log)
+            
+            safeEdit(ctx, 'Дело в шляпе' + `\nРефка успешно добавлена: ${draft.resultLink}`, Markup.inlineKeyboard([
+                Markup.button.callback('Назад', 'back')
+            ]))
+            mapCreateRef.delete(userId)//очистка map
+
+        }
     }
 })
 
 bot.action('backTheTaryff', checkOwner, (ctx) => {
     const userId = ctx.from.id;
-    //чиста временного массива с данными для кастомного тарифа
+    //чистkа временного массива с данными для кастомного тарифа
     clearMap(userId);;
     openMenuAdmin(ctx);
 })

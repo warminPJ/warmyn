@@ -27,8 +27,8 @@ async function safeDelete(ctx = null, messageId = null, userId = null) {
 
     }
     catch (er) {
-            console.error('ошибка крон', error);
-            writeLogs(error, 'safeDelete');
+            console.error('ошибка удаления', er);
+            writeLogs(er, 'safeDelete');
     }
 }
 

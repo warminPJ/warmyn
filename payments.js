@@ -1,5 +1,7 @@
 const crypto = require('crypto')
 
+const { defLinkTgBot } = process.env
+
 async function pay(value, shopId, secretKey) {
 
     const authHeader = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
@@ -19,7 +21,7 @@ async function pay(value, shopId, secretKey) {
             },
             confirmation: {
                 type: 'redirect',
-                return_url: 'https://t.me/warmyn_bot'
+                return_url: defLinkTgBot
             },
             capture: true,
             description: 'Заказ подписки'
