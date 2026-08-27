@@ -20,12 +20,7 @@ const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 const { updatedbAd, getdbAd, createAd, createRef, mapCreateRef } = require('./db/dbAd')
 
 //инициализация бота
-const bot = new Telegraf(botToken,
-    {
-        telegram: {
-            agent: agent
-        }
-    }
+const bot = new Telegraf(botToken
 )
 
 //обработка /start
