@@ -158,14 +158,14 @@ async function getMenu(ctx) {
         Markup.button.callback('Продлить подписку', 'rate')
     ],
     [
-        Markup.button.callback('Перевыпустить ссылку', 'sub:rev')
-    ],
-    [
         { text: 'Скопировать ссылку', copy_text: { text: link.link } }
     ],
     [
+        Markup.button.callback('Перевыпустить ссылку', 'sub:rev')
+    ],
+    [
 
-        Markup.button.callback('Приостановить подписку', 'stop')
+        Markup.button.callback('Приостановить подписку | раз в месяц', 'stop')
     ]]
 
     if (checkOwnersId(ctx)) {

@@ -13,18 +13,13 @@ const { createDevicesdb, deleteDevicesBySubId, saveDevicesToDb, getButtonsForUse
 const { getDateDbSubscritionQueue, addSubIndb, updatedbSubscritionQueue } = require('./db/dbSubscriptionQueue')
 const { linkProxy, ShopId, SecretKey, botToken } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
-const { cronCheck } = require('./cron');
+const { cronCheck, stopReset } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
 const { onoffDiscount, takeFixPrice, priceTaryff } = require('./akciiEpt/discount')
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
 
 //инициализация бота
-const bot = new Telegraf(botToken,
-    {
-        telegram: {
-            agent: agent
-        }
-    }
+const bot = new Telegraf(botToken
 )
 
 //обработка /start
@@ -637,21 +632,28 @@ bot.action('stop', async (ctx) => {
         ctx.answerCbQuery('Подписка успешно возобновлена')
         getMenu(ctx);
     } else {
-        const remains = dbUser.subTime - now
-        // проверка если нажмут после истечения подписки
-        if (remains < 0) {
-            return getMenu(ctx);
+        if (dbUser.stopQuantity !== 1) {
+            const remains = dbUser.subTime - now
+            // проверка если нажмут после истечения подписки
+            if (remains < 0) {
+                return getMenu(ctx);
+            }
+            //отметка в базе что подписка приостановлена
+            updatedbUsers('stop', 'userId', 1, userId);
+
+            //использованние попытки раз в месяц
+            updatedbUsers('stopQuantity', 'userId', 1, userId);
+
+            //запись остатка
+            updatedbUsers('stopTime', 'userId', remains, userId);
+
+            //выключение в панеле
+            await stopUserInRemnawave(dbUser.uuid, 1)
+            ctx.answerCbQuery('Подписка успешно приостановлена')
+            getMenu(ctx)
+        } else {
+            ctx.answerCbQuery('Лимит исчерпан! Вы сможете вновь в следующем месяце')
         }
-        //отметка в базе что подписка приостановлена
-        updatedbUsers('stop', 'userId', 1, userId);
-
-        //запись остатка
-        updatedbUsers('stopTime', 'userId', remains, userId);
-
-        //выключение в панеле
-        await stopUserInRemnawave(dbUser.uuid, 1)
-        ctx.answerCbQuery('Подписка успешно приостановлена')
-        getMenu(ctx)
     }
 })
 
@@ -680,6 +682,7 @@ bot.telegram.setMyCommands([
 ])
 //проверка заканчивающихся подписок
 cronCheck(bot);
+stopReset()
 
 bot.launch()
 

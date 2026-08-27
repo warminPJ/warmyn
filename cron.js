@@ -119,7 +119,7 @@ async function cronCheck(bot) {
                     const queue = getDateDbSubscritionQueue(userId);
                     //если нету очереди
                     if (!queue || queue.length === 0) {
-                        
+
                         await bot.telegram.sendMessage(userId, '**Ваша подписка на 7 дней для оплаты истекла** \nОплатите чтобы оставаться на связи',
                             {
                                 parse_mode: 'Markdown',
@@ -133,7 +133,7 @@ async function cronCheck(bot) {
                         db.prepare('UPDATE users SET notified1h = 3 WHERE userId = ?').run(userId)
                         //допиши логику с 3 в базе обозачающей окончательный обрыв всех тарифов
                         return
-                    }else{
+                    } else {
                         //если есть подписка в очереди
                         transferFromQueue(userId)
                     }
@@ -143,6 +143,25 @@ async function cronCheck(bot) {
         } catch (error) {
             writeLogs(error, 'cron');
             console.error('ошибка крон', error);
+        }
+    })
+}
+
+async function stopReset() {
+
+    cron.schedule('0 0 1 * *', async () => {
+        try {
+            console.log('Ежемесячный сброс лимита на приостановку');
+            const result = db.prepare(`
+            UPDATE users 
+            SET stopQuantity = 0 
+            WHERE stopQuantity != 0
+        `).run();
+            console.log(`лимиты успешно сброшены у ${result.changes}`)
+        }
+        catch (er) {
+            console.error(er);
+            writeLogs(er, 'stopReset')
         }
     })
 }
@@ -181,4 +200,7 @@ async function transferFromQueue(userId) {
     db.prepare('UPDATE users SET notified1h = 0 WHERE userId = ?').run(userId)
 }
 
-module.exports = { cronCheck }
+module.exports = {
+    cronCheck,
+    stopReset
+}
