@@ -102,9 +102,9 @@ async function getMenu(ctx) {
             ...Markup.inlineKeyboard(buttons)
         })
     }
-    
-    if(dbUsers.notified1h === 3){
-        
+
+    if (dbUsers.notified1h === 3) {
+
         const buttons = [
             [
                 Markup.button.callback('Купить подписку', 'rate')
@@ -121,6 +121,34 @@ async function getMenu(ctx) {
         })
     }
 
+    if (dbUsers.stop === 1) {
+        const buttons = [[
+            Markup.button.url('Инструкция', link.link),
+            Markup.button.callback('Мои устройства', 'devices')
+        ],
+        [
+            Markup.button.callback('Продлить подписку', 'rate')
+        ],
+        [
+            Markup.button.callback('Перевыпустить ссылку', 'sub:rev')
+        ],
+        [
+            { text: 'Скопировать ссылку', copy_text: { text: link.link } }
+        ],
+        [
+
+            Markup.button.callback('Возобновить подписку', 'stop')
+        ]]
+
+        if (checkOwnersId(ctx)) {
+            buttons.push([Markup.button.callback('админка', 'admenet')])
+        }
+
+        return safeEdit(ctx, `Ваша ссылка для подключения:\n${displayLink}\nТариф: "${nameTaryff}"\nДата истечения подписки: ${dateLeft} (${daysLeft} дн.)`, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(buttons)
+        })
+    }
 
     const buttons = [[
         Markup.button.url('Инструкция', link.link),

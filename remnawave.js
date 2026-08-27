@@ -98,14 +98,14 @@ async function takeEmergencyTaryff(uuid, expireAt, maxGB = 200 * 1024 * 1024) {
       Authorization: `Bearer ${remnawaveToken}`
     },
     data: {
-    trafficLimitBytes: maxGB,
-    expireAt,
-    uuid
+      trafficLimitBytes: maxGB,
+      expireAt,
+      uuid
     }
   }
   try {
     const { data } = await axios.request(options)
-  } catch(er){
+  } catch (er) {
     console.error(er);
     writeLogs(er, 'takeEmergencyTaryff')
   }
@@ -222,7 +222,43 @@ async function updateTimeGbTrafficTaryff(userId) {
     if (error.response?.data) {
       console.dir(error.response.data, { depth: null });
     }
-    writeLogs(error.response, 'updateTimeGbTrafficTaryff');
+    writeLogs(error, 'updateTimeGbTrafficTaryff');
+  }
+}
+
+async function stopUserInRemnawave(uuid, stop = 0, expireAt) {
+  let options = {}
+  if (stop === 1) {
+    options = {
+      method: 'PATCH',
+      url: createLegitUrl(`/api/users`),
+      headers: {
+        Authorization: `Bearer ${remnawaveToken}`
+      },
+      data: {
+        uuid,
+        status: 'DISABLED'
+      }
+    }
+  } else {
+    options = {
+      method: 'PATCH',
+      url: createLegitUrl(`/api/users`),
+      headers: {
+        Authorization: `Bearer ${remnawaveToken}`
+      },
+      data: {
+        uuid,
+        status: 'ACTIVE',
+        expireAt
+      }
+    }
+  }
+  try {
+    const { data } = await axios.request(options)
+  } catch (er) {
+    console.error(er);
+    writeLogs(er, 'stopUserInRemnawave')
   }
 }
 
@@ -233,5 +269,6 @@ module.exports = {
   deletedDevice,
   updateTimeGbTrafficTaryff,
   getUuidByTelegramId,
-  takeEmergencyTaryff
+  takeEmergencyTaryff,
+  stopUserInRemnawave
 }

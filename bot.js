@@ -6,7 +6,7 @@ const { createPayment, dontTouch, markPaymentDone, markPaymentError } = require(
 const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
 const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
 const { pay, checkPayment } = require('./payments');
-const { createRemnewaveUser, getHWIDDevices, revokeUrl, deletedDevice, updateTimeGbTrafficTaryff } = require('./remnawave')
+const { createRemnewaveUser, getHWIDDevices, revokeUrl, deletedDevice, updateTimeGbTrafficTaryff, stopUserInRemnawave } = require('./remnawave')
 const { taryffUsers, addUserId, numTaryff, priceTaryffFunc, clearMap } = require('./userIdOzu')
 const { writeLogs } = require('./logs/logFunc');
 const { createDevicesdb, deleteDevicesBySubId, saveDevicesToDb, getButtonsForUser } = require('./db/dbUserDevices');
@@ -615,9 +615,44 @@ bot.action('setupDiscount', checkOwner, (ctx) => {
         ]))
 })
 
-bot.action('stop', (ctx) => {
+bot.action('stop', async (ctx) => {
     const userId = ctx.from.id;
-    //затести штуку с ограницением скорости после истечения подписки и допиши логику с приостановкой подписки
+    const dbUser = getDateDbUsers(userId);
+    const now = Date.now();
+
+    if (dbUser.stop === 1) {
+        const newExpireAt = dbUser.stopTime + Date.now()
+        //обновление в панеле
+        stopUserInRemnawave(dbUser.uuid, 0, new Date(newExpireAt).toISOString)
+
+        //запись нового времени в базу
+        updatedbUsers('subTime', 'userId', newExpireAt, userId)
+
+        //сброс остатка времени
+        updatedbUsers('stopTime', 'userId', 0, userId);
+
+        //откат флага о приостановке
+        updatedbUsers('stop', 'userId', 0, userId);
+
+        ctx.answerCbQuery('Подписка успешно возобновлена')
+        getMenu(ctx);
+    } else {
+        const remains = dbUser.subTime - now
+        // проверка если нажмут после истечения подписки
+        if (remains < 0) {
+            return getMenu(ctx);
+        }
+        //отметка в базе что подписка приостановлена
+        updatedbUsers('stop', 'userId', 1, userId);
+
+        //запись остатка
+        updatedbUsers('stopTime', 'userId', remains, userId);
+
+        //выключение в панеле
+        await stopUserInRemnawave(dbUser.uuid, 1)
+        ctx.answerCbQuery('Подписка успешно приостановлена')
+        getMenu(ctx)
+    }
 })
 
 bot.action(/^onoff:(.+)/, checkOwner, (ctx) => {
