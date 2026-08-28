@@ -21,12 +21,7 @@ const { updatedbAd, getdbAd} = require('./db/dbRef')
 const refLogic = require('./action/ref')
 
 //инициализация бота
-const bot = new Telegraf(botToken,
-    {
-        telegram: {
-            agent: agent
-        }
-    }
+const bot = new Telegraf(botToken
 )
 
 //обработка /start
