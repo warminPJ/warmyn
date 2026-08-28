@@ -30,10 +30,16 @@ function redactUrl(url) {
     return url.replace(/([?&][^=&]*(?:token|key|secret|auth)[^=&]*=)[^&]+/gi, '$1[REDACTED]');
 }
 
-function writeLogs(error, contex = '') {
+function writeLogs(error, contex = '', text = 0) {
     try {
         const timeLog = new Date().toLocaleString('ru-RU');
+        if (text !== 0) {
+            let logText = '\n\n\n' + error + ' ' + contex + '\n\n\n'
+            
+            fs.appendFileSync(LOG_FILE, logText, 'utf8');
+        }
         let logMessage = `\n==================== ОШИБКА ====================\n`;
+
         logMessage += `Контекст: ${contex}\n`;
         logMessage += `Время: ${timeLog}\n\n`;
 

@@ -17,10 +17,16 @@ const { cronCheck, stopReset } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
 const { onoffDiscount, takeFixPrice, priceTaryff } = require('./akciiEpt/discount')
 const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
-const { updatedbAd, getdbAd, createAd, createRef, mapCreateRef } = require('./db/dbAd')
+const { updatedbAd, getdbAd} = require('./db/dbRef')
+const refLogic = require('./action/ref')
 
 //инициализация бота
-const bot = new Telegraf(botToken
+const bot = new Telegraf(botToken,
+    {
+        telegram: {
+            agent: agent
+        }
+    }
 )
 
 //обработка /start
@@ -174,19 +180,6 @@ bot.action('plug', async (ctx) => {
     await ctx.answerCbQuery('Это название тарифа').catch(() => { })
 })
 
-bot.action('addRef', checkOwner, async (ctx) => {
-    const userId = ctx.from.id
-    ctx.answerCbQuery();
-
-    safeDelete(ctx)
-
-    const messageId = await safeEdit(ctx, 'Введите реферальное значение которое нужно добавить:',
-        Markup.forceReply()
-    )
-
-    //запись айди соо в map
-    pendingMessage.set(userId, messageId.message_id)
-})
 
 bot.action('admenet', checkOwner, async (ctx) => {
     ctx.answerCbQuery();
@@ -233,7 +226,7 @@ bot.action('editTaryff2', checkOwner, async (ctx) => {
     pendingMessage.set(userId, messageId.message_id)
 })
 
-bot.on('text', checkOwner, async (ctx) => {
+bot.on('text', checkOwner, async (ctx, next) => {
     const userId = ctx.from.id;
     const replyTo = ctx.message.reply_to_message;
 
@@ -299,58 +292,10 @@ bot.on('text', checkOwner, async (ctx) => {
             Markup.button.callback('Назад', 'backTheTaryff')
         ]))
     }
-    if (replyTo && replyTo.text === 'Введите реферальное значение которое нужно добавить:') {
-        await safeDelete(ctx)
-
-        //получение айди соо 'Введите реферальное значение которое нужно добавить:'
-        const idDeleteMessage = pendingMessage.get(userId)
-
-        //удаление соо 'Введите реферальное значение которое нужно добавить:'
-        await safeDelete(ctx, idDeleteMessage, userId);
-
-        pendingMessage.delete(userId)//очистка map
-
-        //рефка от адменет
-        const ref = ctx.message.text.trim();
-
-        //создание рефки в базе
-        const resLink = `${defLinkTgBot}?start=${encodeURIComponent(ref)}`;
-
-        //создание рефки без нейма(он дальше) в map()
-        mapCreateRef.set(userId, {
-            source: ref,
-            sumUser: 0,
-            resultLink: resLink,
-            name: 'no'
-        })
-
-        safeEdit(ctx, 'Введите имя для этой рефки(понятное, можно на русском)',
-            Markup.forceReply()
-        )
-    }
-    if (replyTo && replyTo.text === 'Введите имя для этой рефки(понятное, можно на русском)') {
-        const name = ctx.message.text.trim();
-        const draft = mapCreateRef.get(userId);
-
-        if (draft) {
-
-            draft.name = name;
-
-            //запись в базу рефки
-            createRef(draft.source, draft.sumUser, draft.resultLink, draft.name)
-
-            //вывод обьекта
-            const log = JSON.stringify(draft)
-            console.log(log)
-            
-            safeEdit(ctx, 'Дело в шляпе' + `\nРефка успешно добавлена: ${draft.resultLink}`, Markup.inlineKeyboard([
-                Markup.button.callback('Назад', 'back')
-            ]))
-            mapCreateRef.delete(userId)//очистка map
-
-        }
-    }
+    return next()
 })
+//логика рефки + обработчики
+bot.use(refLogic)
 
 bot.action('backTheTaryff', checkOwner, (ctx) => {
     const userId = ctx.from.id;
@@ -688,7 +633,7 @@ bot.action('setupDiscount', checkOwner, (ctx) => {
                 Markup.button.callback('off', 'onoff:off')
             ],
             [
-                Markup.button.callback('Назад', 'back')
+                Markup.button.callback('Назад', 'admenet')
             ]
 
         ]))

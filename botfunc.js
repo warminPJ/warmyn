@@ -142,7 +142,7 @@ async function getMenu(ctx) {
             buttons.push([Markup.button.callback('админка', 'admenet')])
         }
 
-        return safeEdit(ctx, `Ваша ссылка для подключения:\n${displayLink}\nТариф: "${nameTaryff}"\nДата истечения подписки: ${dateLeft} (${daysLeft} дн.)`, {
+        return safeEdit(ctx, `Ваша ссылка для подключения:\n${displayLink}\nТариф: "${nameTaryff}"\nДата истечения: ${dateLeft} (${daysLeft} дн.)`, {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard(buttons)
         })
@@ -170,7 +170,7 @@ async function getMenu(ctx) {
         buttons.push([Markup.button.callback('админка', 'admenet')])
     }
 
-    return safeEdit(ctx, `Ваша ссылка для подключения:\n${displayLink}\nТариф: "${nameTaryff}"\nДата истечения подписки: ${dateLeft} (${daysLeft} дн.)`, {
+    return safeEdit(ctx, `Ваша ссылка для подключения:\n${displayLink}\nТариф: "${nameTaryff}"\nДата истечения: ${dateLeft} (${daysLeft} дн.)`, {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard(buttons)
     }
@@ -304,13 +304,12 @@ function openMenuAdmin(ctx) {
                 Markup.button.callback('касттариф', 'custTarryf')
             ],
             [
-                Markup.button.callback('Назад', 'back')
-            ],
-            [
                 Markup.button.callback('вкл/выкл пребай', 'setupDiscount')
             ],
             [
-                Markup.button.callback('добавить рефку', 'addRef')
+                Markup.button.callback('рефки', 'refka')
+            ],            [
+                Markup.button.callback('Назад', 'back')
             ]
         ])
     )
