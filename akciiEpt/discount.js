@@ -1,7 +1,10 @@
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf, Markup, Composer } = require('telegraf');
 const { checkOwnersId, safeEdit } = require('../helpers')
-const { getdbDiscount } = require('../db/dbDiscount')
+const { getdbDiscount, createDiscountdb, updatedbDiscount } = require('../db/dbDiscount')
 const { persent } = require('../helpers')
+const composer = new Composer();
+
+const { db } = require('../db/dbUsers')
 
 let benefit = 0
 
@@ -73,18 +76,54 @@ function takeFixPrice(ctx, num) {
     const bazePrice = priceTaryff[num];
     const dbDiscount = getdbDiscount(userId)
 
+    //проверка на наличие в базе
     if (!dbDiscount) return bazePrice;
 
+    //проверка на наличие скидочных покупок(изначально 6)
+    if(dbDiscount?.maxLimit <= 0) return bazePrice
     const discountPercent = dbDiscount.discountPercent
-    if(discountPercent === 12) return discountPriceTarryf[num]
+
+    //если пререг - 12 праценов скидка то берём предустановленные значения
+    if (discountPercent === 12) return discountPriceTarryf[num]
+
     const finalPrice = persent(priceTaryff[num], discountPercent)
     console.log('сумма за тариф', finalPrice)
-
 
     return finalPrice;
 }
 
+
+composer.action('discount', async (ctx) => {
+    const userId = ctx.from.id;
+    const username = ctx.from.username
+
+    const dbDiscount = await getdbDiscount(userId)
+    console.log(dbDiscount)
+    if (!dbDiscount) {
+        createDiscountdb(userId, username, 12, 'test')
+        await ctx.answerCbQuery('Успешно!', {
+            show_alert: true
+        })
+        return
+    }
+    ctx.answerCbQuery('Ну всё, всё, не кликай, ты уже добавлен')
+})
+
+
+composer.action(/^chivo:(.+)/, (ctx) => {
+    const num = Number(ctx.match[1])
+    if (num === 1) {
+        ctx.answerCbQuery('Чиво?')
+    } else if (num === 2) {
+        ctx.answerCbQuery('Чивоо?')
+    } else if (num === 3) {
+        ctx.answerCbQuery('Чивооо?')
+    } else
+        ctx.answerCbQuery('Чивоооо?')
+})
+
 module.exports = {
+    composer,//сделать логику с 6 месячной акцией(мб 6 раз сделать скидку при покупке а потом 0 и всё)
     discount,
     onoffDiscount,
     takeFixPrice,

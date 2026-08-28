@@ -17,7 +17,7 @@ function createLegitUrl(path = '') {
   return url
 }
 
-async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, paymentId = null, notPayment = 0, nameTaryff = '') {
+async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, paymentId = null, notPayment = 0, nameTaryff = '', hwidDeviceLimit) {
 
   const expireDate = new Date(expireAt).toISOString();
   const createdAt = new Date(Date.now()).toISOString();
@@ -29,7 +29,7 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, p
     trafficLimitStrategy: 'NO_RESET',
     expireAt: expireDate,
     createdAt: createdAt,
-    hwidDeviceLimit: 5,
+    hwidDeviceLimit,
     activeInternalSquads: [uuidSquad],
     telegramId
   }

@@ -15,10 +15,10 @@ const { linkProxy, ShopId, SecretKey, botToken, defLinkTgBot } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
 const { cronCheck, stopReset } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
-const { onoffDiscount, takeFixPrice, priceTaryff } = require('./akciiEpt/discount')
-const { createDiscountdb, getdbDiscount } = require('./db/dbDiscount')
-const { updatedbAd, getdbAd} = require('./db/dbRef')
+const { createDiscountdb, getdbDiscount, updatedbDiscount } = require('./db/dbDiscount')
+const { updatedbAd, getdbAd } = require('./db/dbRef')
 const refLogic = require('./action/ref')
+const { composer: discountLogic, discount, onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
 
 //инициализация бота
 const bot = new Telegraf(botToken
@@ -339,8 +339,12 @@ bot.action(/^taryff:(.+)$/, async (ctx) => {
             } else if (lastNum === 2) {
                 nameTaryff = 'Бахбах'
             }
+            let hwidDeviceLimit = 10
+            if(lastNum === 1){
+                hwidDeviceLimit = 3
+            }
 
-            createPayment(paymentId, userId, maxGbTarryf[lastNum], subTimeTarryf[firstChar], `taryff${num}`);
+            createPayment(paymentId, userId, maxGbTarryf[lastNum], subTimeTarryf[firstChar], `taryff${num}`, hwidDeviceLimit);
 
             const callbackData = `chk:${paymentId}`
             return await safeEdit(ctx, `Ссылка на оплату подписки ${nameTaryff} готова: `,
@@ -399,16 +403,29 @@ bot.action(/^chk:(.+)/, async (ctx) => {
 
         //проверка на дабл клик и выдача подписки
         if (payment.status === 'succeeded') {
-            //проверка если ли в базе пользователь
+
             if (markPaymentDone(paymentId)) {
                 const dbUser = getDateDbUsers(userId);
-                if (!dbUser) {
+
+                const dbDiscount = await getdbDiscount(userId)
+                if (dbDiscount) {
+                    //отметка о том что пререг купил
+                    updatedbDiscount('isUsed', 'userId', 1, userId)
+
+                    //вычитаем месяц
+                    const newLimit = dbDiscount.maxLimit - 1
+                    console.log('новый лимит', newLimit)
+
+                    updatedbDiscount('maxLimit', 'userId', newLimit, userId)
+                }
+
+                if (!dbUser) {//проверка если ли в базе пользователь
                     await ctx.answerCbQuery('Успешная оплата!');
 
                     //создание подписки в панеле
                     //dbPayment.subTime хранит длительность подписки в мс, поэтому абсолютное время окончания = Date.now() + dbPayment.subTime
                     const newExpireAt = Date.now() + dbPayment.subTime;
-                    const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId);
+                    const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId, dbPayment.hwidDeviceLimit);
                     //запись пользователя в базы
                     if (resCreateRemnewaveUser === 'test') {
                         //ссылка эщкере
@@ -589,22 +606,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
     }
 })
 
-bot.action('discount', async (ctx) => {
-    const userId = ctx.from.id;
-    const username = ctx.from.username
-
-    const dbDiscount = await getdbDiscount(userId)
-    console.log(dbDiscount)
-    if (!dbDiscount) {
-        await createDiscountdb(userId, username, 12, 'test')
-        await ctx.answerCbQuery('Успешно!', {
-            show_alert: true
-        })
-        return
-    }
-    ctx.answerCbQuery('Ну всё, всё, не кликай, ты уже добавлен')
-})
-
+bot.use(discountLogic)
 
 bot.action(/^chivo:(.+)/, (ctx) => {
     const num = Number(ctx.match[1])

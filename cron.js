@@ -6,6 +6,7 @@ const { getDateDbSubscritionQueue, deleteSubscritionQueue } = require('./db/dbSu
 const { updateTimeGbTrafficTaryff, takeEmergencyTaryff } = require('./remnawave');
 const { makeCtx } = require('./botfunc')
 const { safeDelete, safeEdit } = require('./helpers')
+const { getdbDiscount, updatedbDiscount } = require('./db/dbDiscount')
 
 const pendingMessage = new Map()
 
@@ -63,6 +64,12 @@ async function cronCheck(bot) {
 
                     //проверка если нету очереди
                     if (!queue || queue.length === 0) {
+
+                        const dbDiscount = getdbDiscount(userId)
+                        if(dbDiscount){
+                            //перевод в статус не используется если пререг
+                            updatedbDiscount('isUsed', 'userId', 0, userId)
+                        }
 
                         //кастом ctx перейди глянь если хз чо это, тут нет контекста
                         const ctxCustom = makeCtx(bot, userId);
