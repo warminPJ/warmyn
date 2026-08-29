@@ -59,16 +59,38 @@ async function createRemnewaveUser(userId, expireAt, trafficLimitGB, username, p
           const subTime = Date.now() + dbPayment.subTime
 
           //создание пользователя в базе
-          await createSubdb(userId, subTime, dbPayment.maxGB, 0, res.id, link, uuid, username, dbPayment.nameTaryff, 0, 0)
+          createSubdb({
+            userId,
+            subTime,
+            maxGB: dbPayment.maxGB,
+            subId: res.id,
+            link,
+            uuid,
+            username,
+            nameTaryff: dbPayment.nameTaryff,
+            hwidDeviceLimit: dbPayment.hwidDeviceLimit
+          })
 
           //перенос из базы новых данных в панель
           await updateTimeGbTrafficTaryff(userId);
         } else {
+
+          const dbPayment = await dontTouch(paymentId);//получение строки покупки
           const res = await getUuidByTelegramId(userId);
 
           //создание пользователя в базе
-          await createSubdb(userId, expireAt, trafficLimitGB, 0, res.id, res.subscriptionUrl, res.uuid, username, nameTaryff, 0, 0)
-
+          createSubdb({
+            userId,
+            subTime: expireAt,
+            maxGB: trafficLimitGB,
+            subId: res.id,
+            link: res.subscriptionUrl,
+            uuid: res.uuid,
+            username,
+            nameTaryff,
+            hwidDeviceLimit: dbPayment.hwidDeviceLimit
+          })
+          
           //перенос из базы новых данных в панель
           const data = await updateTimeGbTrafficTaryff(userId)
         }
@@ -198,6 +220,7 @@ async function revokeUrl(uuid) {
 async function updateTimeGbTrafficTaryff(userId) {
   const dbUser = await getDateDbUsers(userId)
   const uuid = dbUser.uuid;
+  const hwidDeviceLimit = dbUser.hwidDeviceLimit
   console.log(dbUser.uuid)
   const newExpireAt = new Date(dbUser.subTime).toISOString();
   const newTrafficLimitGb = dbUser.maxGB;
@@ -211,7 +234,8 @@ async function updateTimeGbTrafficTaryff(userId) {
     data: {
       uuid,
       trafficLimitBytes: newTrafficLimitGb * 1024 * 1024 * 1024,
-      expireAt: newExpireAt
+      expireAt: newExpireAt,
+      hwidDeviceLimit
     }
   }
 

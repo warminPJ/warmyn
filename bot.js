@@ -340,7 +340,7 @@ bot.action(/^taryff:(.+)$/, async (ctx) => {
                 nameTaryff = 'Бахбах'
             }
             let hwidDeviceLimit = 10
-            if(lastNum === 1){
+            if (lastNum === 1) {
                 hwidDeviceLimit = 3
             }
 
@@ -383,7 +383,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
     const paymentId = ctx.match[1];
     const userId = ctx.from.id
     const username = ctx.from.username
-    const dbPayment = dontTouch(paymentId);
+    const dbPayment = await dontTouch(paymentId);
 
     if (!dbPayment) {
         return ctx.answerCbQuery('Платёж не найден', { show_alert: true })
@@ -425,7 +425,8 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                     //создание подписки в панеле
                     //dbPayment.subTime хранит длительность подписки в мс, поэтому абсолютное время окончания = Date.now() + dbPayment.subTime
                     const newExpireAt = Date.now() + dbPayment.subTime;
-                    const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId, dbPayment.hwidDeviceLimit);
+                    console.log('пам пам пам ', dbPayment.hwidDeviceLimit)
+                    const resCreateRemnewaveUser = await createRemnewaveUser(userId, newExpireAt, dbPayment.maxGB, username, paymentId, 0, dbPayment.nameTaryff, dbPayment.hwidDeviceLimit);
                     //запись пользователя в базы
                     if (resCreateRemnewaveUser === 'test') {
                         //ссылка эщкере
@@ -447,8 +448,18 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                         })
                     }
                     else {
-                        //создание пользователя если его уже нет в панеле
-                        await createSubdb(userId, newExpireAt, dbPayment.maxGB, 0, resCreateRemnewaveUser.response.id, resCreateRemnewaveUser.response.subscriptionUrl, resCreateRemnewaveUser.response.uuid, username, dbPayment.nameTaryff)
+                        //создание пользователя если его ещё нет в панеле
+                        createSubdb({
+                            userId,
+                            subTime: newExpireAt,
+                            maxGB:dbPayment.maxGB,
+                            subId: resCreateRemnewaveUser?.response?.id,
+                            link: resCreateRemnewaveUser?.response?.subscriptionUrl,
+                            uuid: resCreateRemnewaveUser?.response?.uuid,
+                            username,
+                            nameTaryff: dbPayment.nameTaryff,
+                            hwidDeviceLimit: dbPayment.hwidDeviceLimit
+                        })
                     }
                     const link = getLink(userId).link
                     //клава выводящаяся типо
@@ -516,16 +527,20 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                             if (dbUser.notified1h === 2 || dbUser.notified1h === 3) {
                                 //новое число гб из оплаты
                                 const newMaxGb = dbPayment.maxGB
-                                await updatedbUsers('maxGB', 'userId', newMaxGb, userId)
+                                updatedbUsers('maxGB', 'userId', newMaxGb, userId)
+
+                                //обновление колва устройств
+                                const newHwidDeviceLimit = dbPayment.hwidDeviceLimit
+                                updatedbUsers('hwidDeviceLimit', 'userId', newHwidDeviceLimit, userId)
 
                                 //новое время из оплаты
                                 //dbPayment.subTime - длительность подписки, users.subTime хранит абсолютное время окончания
                                 const newSubTime = Date.now() + dbPayment.subTime
-                                await updatedbUsers('subTime', 'userId', newSubTime, userId)
+                                updatedbUsers('subTime', 'userId', newSubTime, userId)
 
                                 //обновление названия тарифа
                                 const newNameTaryff = dbPayment.nameTaryff;
-                                await updatedbUsers('nameTaryff', 'userId', newNameTaryff, userId)
+                                updatedbUsers('nameTaryff', 'userId', newNameTaryff, userId)
 
                                 //включение уведомления
                                 updatedbUsers('notified1h', 'userId', 0, userId);
@@ -552,7 +567,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
 
                             } else {
                                 const subTime = dbPayment.subTime
-                                addSubIndb(userId, dbUser.uuid, dbPayment.nameTaryff, subTime, dbPayment.maxGB);
+                                addSubIndb(userId, dbUser.uuid, dbPayment.nameTaryff, subTime, dbPayment.maxGB, dbPayment.hwidDeviceLimit);
                                 //включение уведомления
                                 updatedbUsers('notified1h', 'userId', 0, userId);
                             }

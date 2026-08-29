@@ -66,7 +66,7 @@ async function cronCheck(bot) {
                     if (!queue || queue.length === 0) {
 
                         const dbDiscount = getdbDiscount(userId)
-                        if(dbDiscount){
+                        if (dbDiscount) {
                             //перевод в статус не используется если пререг
                             updatedbDiscount('isUsed', 'userId', 0, userId)
                         }
@@ -78,7 +78,7 @@ async function cronCheck(bot) {
                         //удаление соо уведа за час до окончания
                         safeDelete(ctxCustom, messageId, userId);
 
-                        const expuredAt = 60 * 1000/*7 дней */ + Date.now()
+                        const expuredAt = 7 * 24 * 60 * 60 * 1000/*7 дней */ + Date.now()
                         const expired_at = new Date(expuredAt).toISOString()
                         console.log(expired_at)
 
@@ -87,7 +87,7 @@ async function cronCheck(bot) {
                         const maxGB = 200 * 1024 * 1024 //200 мб
                         updatedbUsers('maxGB', 'userId', maxGB, userId);//обновление гб в базе
 
-                        updatedbUsers('nameTaryff', 'userId', 'taryff3', userId)//обновление названия тарифа в базе
+                        updatedbUsers('nameTaryff', 'userId', 'taryff3', userId)//обновление названия тарифа в базе мехагизм аварийного тарифа забей, просто не лезь и всё
                         takeEmergencyTaryff(dbUser.uuid, expired_at, maxGB);
 
                         //очистка map

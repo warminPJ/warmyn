@@ -183,7 +183,7 @@ async function outputMsg(ctx, flag = 0) {
         return await safeEdit(ctx, 'Выберите тариф:',
             Markup.inlineKeyboard([
                 [
-                    Markup.button.callback('Бимбимбамбам | ♾️ гб', 'plug')
+                    Markup.button.callback('Бимбимбамбам | ♾️ гб | 3 устр', 'plug')
                 ], [
                     Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 11)} руб`, 'taryff:11'),
                     Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 31)} руб (-27%)`, 'taryff:31')
@@ -191,7 +191,7 @@ async function outputMsg(ctx, flag = 0) {
                     Markup.button.callback(`6 мес • ${takeFixPrice(ctx, 61)} руб (-37%)`, 'taryff:61'),
                     Markup.button.callback(`12 мес • ${takeFixPrice(ctx, 91)} руб (-52%)`, 'taryff:91')
                 ], [
-                    Markup.button.callback(`Бахбах | ♾️ гб`, 'plug')
+                    Markup.button.callback(`Бахбах | ♾️ гб | 10 устр`, 'plug')
                 ], [
                     Markup.button.callback(`1 мес • ${takeFixPrice(ctx, 12)} руб`, 'taryff:12'),
                     Markup.button.callback(`3 мес • ${takeFixPrice(ctx, 32)} руб (-27%)`, 'taryff:32')

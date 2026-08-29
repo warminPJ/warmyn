@@ -11,12 +11,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS subscritionQueue (
     createdAt INTEGER,
     subTime INTEGER,
     maxGB INTEGER,
-    position INTEGER NOT NULL
+    hwidDeviceLimit INTEGER
 )`);
 
-const subscritionQueue = db.prepare('INSERT OR REPLACE INTO subscritionQueue (userId, uuid, nameTaryff, createdAt, subTime, maxGB, position) VALUES (?, ?, ?, ?, ?, ?, ?)');
-function createSubscritionQueue(userId, uuid, nameTaryff, createdAt, maxGB, subTime, position) {
-    return subscritionQueue.run(userId, uuid, nameTaryff, createdAt, maxGB, subTime, position)
+const subscritionQueue = db.prepare('INSERT OR REPLACE INTO subscritionQueue (userId, uuid, nameTaryff, createdAt, subTime, maxGB, hwidDeviceLimit) VALUES (?, ?, ?, ?, ?, ?, ?)');
+function createSubscritionQueue(userId, uuid, nameTaryff, createdAt, maxGB, subTime, hwidDeviceLimit) {
+    return subscritionQueue.run(userId, uuid, nameTaryff, createdAt, maxGB, subTime, hwidDeviceLimit)
 }
 //получение всей строки
 function getDateDbSubscritionQueue(userId) {
@@ -28,24 +28,14 @@ function updatedbSubscritionQueue(set, where, par1, par2) {
     return res;
 }
 
-function addSubIndb(userId = 0, uuid, nameTaryff = '', subTime, maxGB = 0) {
-    const queue = getDateDbSubscritionQueue(userId);
+function addSubIndb(userId = 0, uuid, nameTaryff = '', subTime, maxGB = 0, hwidDeviceLimit) {
     console.log(`end ${new Date(subTime).toISOString()}`)
-    let maxValue = 0
-    for (const item of queue) {
-        if (item.position > maxValue) {
-            maxValue = item.position;
-        }
-    }
-
-    const nextValue = maxValue + 1
-    maxValue = 0;
 
     const now = new Date(Date.now()).toISOString();
     const insert = db.prepare(`
-        INSERT INTO subscritionQueue (userId, uuid, nameTaryff, createdAt, subTime, maxGB, position)
+        INSERT INTO subscritionQueue (userId, uuid, nameTaryff, createdAt, subTime, maxGB, hwidDeviceLimit)
         VALUES(?, ?, ?, ?, ?, ?, ?)
-        `).run(userId, uuid, nameTaryff, now, subTime, maxGB, nextValue)
+        `).run(userId, uuid, nameTaryff, now, subTime, maxGB, hwidDeviceLimit)
     return
 }
 
