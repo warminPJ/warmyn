@@ -7,7 +7,7 @@ const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
 const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
 const { pay, checkPayment } = require('./payments');
 const { createRemnewaveUser, getHWIDDevices, revokeUrl, deletedDevice, updateTimeGbTrafficTaryff, stopUserInRemnawave } = require('./remnawave')
-const { taryffUsers, addUserId, numTaryff, priceTaryffFunc, clearMap } = require('./userIdOzu')
+const { clearMap } = require('./userIdOzu')
 const { writeLogs } = require('./logs/logFunc');
 const { createDevicesdb, deleteDevicesBySubId, saveDevicesToDb, getButtonsForUser } = require('./db/dbUserDevices');
 const { getDateDbSubscritionQueue, addSubIndb, updatedbSubscritionQueue } = require('./db/dbSubscriptionQueue')
@@ -18,22 +18,25 @@ const { safeDelete, safeEdit } = require('./helpers')
 const { createDiscountdb, getdbDiscount, updatedbDiscount } = require('./db/dbDiscount')
 const { updatedbAd, getdbAd } = require('./db/dbRef')
 const refLogic = require('./action/ref')
+const custTaryffLogic = require('./action/custTaryff')
 const { composer: discountLogic, discount, onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
 
 //инициализация бота
-const bot = new Telegraf(botToken
+const bot = new Telegraf(botToken,
+    {
+        telegram: {
+            agent: agent
+        }
+    }
 )
 
 //обработка /start
 bot.start((ctx) => {
     const payload = ctx.payload;
-    console.log(payload)
     if (payload) {
-        console.log(payload)
 
         //получение актеального числа перешедших
         const newSumUser = getdbAd(payload).sumUser + 1
-        console.log(newSumUser)
         //обновление колва перешедших по рефке
         updatedbAd('sumUser', 'source', newSumUser, payload);
     }
@@ -182,114 +185,11 @@ bot.action('admenet', checkOwner, async (ctx) => {
 
 })
 
-bot.action('custTarryf', checkOwner, async (ctx) => {
-    const userId = ctx.from.id;
-    ctx.answerCbQuery('в постель)');
-    await safeDelete(ctx);
 
-    const messageId = await safeEdit(ctx, 'Введите айди пользователя для каста его тарифа:', Markup.forceReply())
-    //запись айди соо в map
-    pendingMessage.set(userId, messageId.message_id)
-    return
-})
-
-
-bot.action('editTaryff1', checkOwner, async (ctx) => {
-    const userId = ctx.from.id;
-    //запись в временный обьект номер тарифа
-    numTaryff(userId, 1);
-    ctx.answerCbQuery();
-    safeDelete(ctx)
-
-    const messageId = await safeEdit(ctx, 'Введите сумму на тариф для указанного айди:',
-        Markup.forceReply()
-    )
-    //запись айди соо в map
-    pendingMessage.set(userId, messageId.message_id)
-    return
-})
-bot.action('editTaryff2', checkOwner, async (ctx) => {
-    const userId = ctx.from.id;
-    //запись в временный обьект номер тарифа
-    numTaryff(userId, 2);
-    ctx.answerCbQuery();
-    safeDelete(ctx);
-    const messageId = await safeEdit(ctx, 'Введите сумму на тариф для указанного айди:',
-        Markup.forceReply()
-    )
-    //запись айди соо в map
-    pendingMessage.set(userId, messageId.message_id)
-})
-
-bot.on('text', checkOwner, async (ctx, next) => {
-    const userId = ctx.from.id;
-    const replyTo = ctx.message.reply_to_message;
-
-    if (replyTo && replyTo.text === 'Введите айди пользователя для каста его тарифа:') {
-        await safeDelete(ctx)
-
-        //получение айди соо 'Введите айди пользователя для каста его тарифа:'
-        const idDeleteMessage = pendingMessage.get(userId)
-
-        //удаление соо 'Введите айди пользователя для каста его тарифа:'
-        await safeDelete(ctx, idDeleteMessage, userId);
-
-        pendingMessage.delete(userId)//очистка map
-
-        const userIdTar = Number(ctx.message.text);
-        //начало логики создание кастомного тарифа в базе
-        await addUserId(userId, userIdTar);
-        //получение айди соо для удаления
-        await safeEdit(ctx, 'Выберите тариф цену которого поменять', Markup.inlineKeyboard([
-            [
-                Markup.button.callback('Бимбимбамбам', 'editTaryff1')
-            ],
-            [
-                Markup.button.callback('Бамхбах', 'editTaryff2')
-            ],
-            [
-                Markup.button.callback('Назад', 'backTheTaryff')
-            ]
-        ]))
-
-    }
-    if (replyTo && replyTo.text === 'Введите сумму на тариф для указанного айди:') {
-        await safeDelete(ctx)
-
-        //получение айди соо 'Введите айди пользователя для каста его тарифа:'
-        const idDeleteMessage = pendingMessage.get(userId)
-
-        //удаление соо 'Введите айди пользователя для каста его тарифа:'
-        await safeDelete(ctx, idDeleteMessage, userId);
-
-        pendingMessage.delete(userId)//очистка map
-
-        const price = Number(ctx.message.text);
-        await priceTaryffFunc(userId, price);
-        console.log('все данные для кастомизации тарифа переданы в временный массив');
-        console.log(taryffUsers)
-        const userData = taryffUsers.get(userId);
-        if (!userData) {
-            console.log('нету ссылки userData');
-            return
-        }
-        const userIdTar = userData.userIdTar;
-        const tariffPrice = userData.price;
-        const numberTaryff = userData.numberTaryff;
-
-        console.log(numberTaryff)
-
-        await tariffRecord(userIdTar, tariffPrice, numberTaryff);
-
-        console.log('касттариф записан в базу данных');
-
-        safeEdit(ctx, 'Дело в шляпе', Markup.inlineKeyboard([
-            Markup.button.callback('Назад', 'backTheTaryff')
-        ]))
-    }
-    return next()
-})
 //логика рефки + обработчики
+
+bot.use(custTaryffLogic)
+bot.use(discountLogic)
 bot.use(refLogic)
 
 bot.action('backTheTaryff', checkOwner, (ctx) => {
@@ -322,7 +222,7 @@ bot.action(/^taryff:(.+)$/, async (ctx) => {
     const dbCustPrice = getDatedbCustPrice(userId)
     //кастомная цена
     const custPrice = dbCustPrice?.[`taryff${num}`]
-    const price = takeFixPrice(ctx, num)
+    const price = takeFixPrice(userId, num)
     console.log(price)
     //платёж епт               выбор если каст не равен 0 то выбирается он а если 0 то деф цена
     try {
@@ -621,6 +521,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
     }
 })
 
+bot.use(custTaryffLogic)
 bot.use(discountLogic)
 
 bot.action(/^chivo:(.+)/, (ctx) => {

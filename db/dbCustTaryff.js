@@ -1,16 +1,28 @@
 const Datebase = require('better-sqlite3');
 const db = new Datebase('base.db');
 
+const TARIFF_KEYS = ['taryff11', 'taryff31', 'taryff61', 'taryff91', 'taryff12', 'taryff32', 'taryff62', 'taryff92'];
+
+const columnsSQL = TARIFF_KEYS.map(key => `${key} INTEGER DEFAULT 0`).join(',\n');
+
 // база с кастомными тарифами
-db.exec(`CREATE TABLE IF NOT EXISTS custTaryff (userIdTar TEXT PRIMARY KEY, taryff1 INTEGER DEFAULT 0, taryff2 INTEGER DEFAULT 0)`);
-const custTaryff = db.prepare(`INSERT OR REPLACE INTO custTaryff (userIdTar, taryff1, taryff2) VALUES (?, ?, ?)`)
+db.exec(`CREATE TABLE IF NOT EXISTS custTaryff (
+    userIdTar TEXT PRIMARY KEY,
+    ${columnsSQL}
+)`);
+
+
 // запись кастом тарифа в базу
 function tariffRecord(userIdTar, price, numberTaryff) {
-    const colIndex = Number(numberTaryff);
+
+
     console.log(numberTaryff)
 
-    if (![1, 2].includes(colIndex)) throw new Error('Invalid tariff index');
     const nameColumn = `taryff${Number(numberTaryff)}`
+    
+    if (!TARIFF_KEYS.includes(nameColumn)) {
+        throw new Error(`Неизвестный тариф: ${nameColumn}`);
+    }
     const res = db.prepare(`INSERT INTO custTaryff(userIdTar, ${nameColumn})
         VALUES(?, ?)
         ON CONFLICT(userIdTar)
@@ -22,6 +34,7 @@ function tariffRecord(userIdTar, price, numberTaryff) {
 function getDatedbCustPrice(userId) {
     return db.prepare('SELECT * FROM custTaryff WHERE userIdTar = ?').get(userId)
 }
+
 
 module.exports = {
     tariffRecord,

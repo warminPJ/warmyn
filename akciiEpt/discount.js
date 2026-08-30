@@ -3,6 +3,7 @@ const { checkOwnersId, safeEdit } = require('../helpers')
 const { getdbDiscount, createDiscountdb, updatedbDiscount } = require('../db/dbDiscount')
 const { persent } = require('../helpers')
 const composer = new Composer();
+const { getDatedbCustPrice } = require('../db/dbCustTaryff')
 
 const { db } = require('../db/dbUsers')
 
@@ -71,16 +72,35 @@ const discountPriceTarryf = {
 }
 
 //сумма с учётом скидки
-function takeFixPrice(ctx, num) {
-    const userId = ctx.from.id
+function takeFixPrice(userId, num) {
     const bazePrice = priceTaryff[num];
     const dbDiscount = getdbDiscount(userId)
+    const dbCustTarryf = getDatedbCustPrice(userId)
+
+    if (dbCustTarryf) {
+        const custPrice = dbCustTarryf[`taryff${num}`]
+        if (custPrice === 0) {
+            //проверка на наличие в базе
+            if (!dbDiscount) return bazePrice;
+
+            //проверка на наличие скидочных покупок(изначально 6)
+            if (dbDiscount?.maxLimit <= 0) return bazePrice
+            const discountPercent = dbDiscount.discountPercent
+
+            //если пререг - 12 праценов скидка то берём предустановленные значения
+            if (discountPercent === 12) return discountPriceTarryf[num]
+
+            const finalPrice = persent(priceTaryff[num], discountPercent)
+        }
+
+        return custPrice
+    }
 
     //проверка на наличие в базе
     if (!dbDiscount) return bazePrice;
 
     //проверка на наличие скидочных покупок(изначально 6)
-    if(dbDiscount?.maxLimit <= 0) return bazePrice
+    if (dbDiscount?.maxLimit <= 0) return bazePrice
     const discountPercent = dbDiscount.discountPercent
 
     //если пререг - 12 праценов скидка то берём предустановленные значения

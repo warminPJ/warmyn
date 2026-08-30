@@ -15,9 +15,10 @@ function addUserId(userId, userIdTar){
 function numTaryff(userId, numberTaryff){
     //получение ссылки на обьект
     const userDate = taryffUsers.get(userId);
+    if(!userDate) return 0
     userDate.numberTaryff = numberTaryff;
-    console.log('номер тарифа записан в озу');
-    console.log(numberTaryff)
+    console.log('номер тарифа записан в озу', numberTaryff);
+    console.log(taryffUsers.get(userId))
     return
 }
 //ввод цены для тарифа

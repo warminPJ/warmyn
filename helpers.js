@@ -11,7 +11,6 @@ function persent(val, pct) {
     const price = Number(val);
     const percent = Number(pct)
     const res = Math.ceil(price * (100 - percent) / 100)
-    console.log(res)
     return res;
 }
 
@@ -19,7 +18,7 @@ async function safeDelete(ctx = null, messageId = null, userId = null) {
     try {
 
         const chatId = ctx.chat?.id || ctx.from?.id || userId;
-        console.log(messageId, chatId)
+        console.log(messageId || 'нет ввода айди для удаления', chatId)
         if (messageId && chatId) {
             return await ctx.telegram.deleteMessage(chatId, messageId);
         }
@@ -27,8 +26,8 @@ async function safeDelete(ctx = null, messageId = null, userId = null) {
 
     }
     catch (er) {
-            console.error('ошибка удаления', er);
-            writeLogs(er, 'safeDelete');
+        console.error('ошибка удаления', er);
+        writeLogs(er, 'safeDelete');
     }
 }
 
@@ -42,7 +41,6 @@ async function safeEdit(ctx, text, button = {}, idMessageEdit = null) {
     const userId = ctx.from.id;
 
     try {
-        console.log(idMessageEdit)
         if (idMessageEdit) {
             console.log('я тут');
             return await ctx.telegram.editMessageText(
@@ -61,10 +59,15 @@ async function safeEdit(ctx, text, button = {}, idMessageEdit = null) {
     }
     catch (error) {
         if (error.description?.includes('message is not modified')) return;
+        if (error.description?.includes('message to edit not found')) return await ctx.reply(text, button);
         writeLogs(error, 'safeEdit');
         console.log(error)
         return await ctx.reply(text, button);
     }
+}
+
+function adddbColomn(){
+    
 }
 
 module.exports = {

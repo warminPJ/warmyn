@@ -50,7 +50,7 @@ composer.action('addRef', checkOwner, async (ctx) => {
     pendingMessage.set(userId, messageId.message_id)
 })
 
-composer.on('text', checkOwner, async (ctx) => {
+composer.on('text', checkOwner, async (ctx, next) => {
     const userId = ctx.from.id;
     const replyTo = ctx.message.reply_to_message;
 
@@ -105,6 +105,7 @@ composer.on('text', checkOwner, async (ctx) => {
 
         }
     }
+    return next()
 })
 
 composer.action(/^ref:(.+)$/, (ctx) => {
