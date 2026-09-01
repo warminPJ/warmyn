@@ -4,7 +4,7 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 const { getMenu, priceComparison, checkOwner, openMenuAdmin, pendingMessage, outputMsg } = require('./botfunc');
 const { createPayment, dontTouch, markPaymentDone, markPaymentError } = require('./db/dbPayment')
 const { tariffRecord, getDatedbCustPrice } = require('./db/dbCustTaryff')
-const { getLink, createSubdb, db, getDateDbUsers, updatedbUsers } = require('./db/dbUsers')
+const { getLink, createSubdb, getDateDbUsers, updatedbUsers, getGenerateNumUser } = require('./db/dbUsers')
 const { pay, checkPayment } = require('./payments');
 const { createRemnewaveUser, getHWIDDevices, revokeUrl, deletedDevice, updateTimeGbTrafficTaryff, stopUserInRemnawave } = require('./remnawave')
 const { clearMap } = require('./userIdOzu')
@@ -15,11 +15,11 @@ const { linkProxy, ShopId, SecretKey, botToken, defLinkTgBot } = process.env
 const agent = linkProxy ? new HttpsProxyAgent(`${linkProxy}`) : undefined;
 const { cronCheck, stopReset } = require('./cron');
 const { safeDelete, safeEdit } = require('./helpers')
-const { createDiscountdb, getdbDiscount, updatedbDiscount } = require('./db/dbDiscount')
+const { getdbDiscount, updatedbDiscount, getInfoDate } = require('./db/dbDiscount')
 const { updatedbAd, getdbAd } = require('./db/dbRef')
 const refLogic = require('./action/ref')
 const custTaryffLogic = require('./action/custTaryff')
-const { composer: discountLogic, discount, onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
+const { composer: discountLogic, onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
 
 //инициализация бота
 const bot = new Telegraf(botToken,
@@ -185,6 +185,18 @@ bot.action('admenet', checkOwner, async (ctx) => {
 
 })
 
+bot.action('generalState', checkOwner, async (ctx) => {
+    ctx.answerCbQuery();
+    const infoPreRef = await getInfoDate();
+    const infoUser = await getGenerateNumUser()
+
+    safeEdit(ctx, `инфа чо:
+активных пользователей ${infoUser.generalUser}
+пререги: ${infoPreRef.generalUser}
+колво активных пререгов: ${infoPreRef.number}`, Markup.inlineKeyboard([
+        Markup.button.callback('назад', 'admenet')
+    ]))
+})
 
 //логика рефки + обработчики
 
@@ -352,7 +364,7 @@ bot.action(/^chk:(.+)/, async (ctx) => {
                         createSubdb({
                             userId,
                             subTime: newExpireAt,
-                            maxGB:dbPayment.maxGB,
+                            maxGB: dbPayment.maxGB,
                             subId: resCreateRemnewaveUser?.response?.id,
                             link: resCreateRemnewaveUser?.response?.subscriptionUrl,
                             uuid: resCreateRemnewaveUser?.response?.uuid,

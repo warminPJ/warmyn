@@ -27,6 +27,16 @@ function getdbDiscount(userId) {
     return getUserDiscount.get(userId)
 }
 
+const getAll = db.prepare(`SELECT 
+  COUNT(*) AS generalUser,
+  COUNT(CASE WHEN isUsed = 1 THEN 1 END) AS number
+FROM discount`)
+
+//получение всей базы
+function getInfoDate(){
+    return getAll.get()
+}
+
 //апдейт базы
 function updatedbDiscount(set, where, par1, par2) {
     db.prepare(`UPDATE discount SET ${set} = ? WHERE ${where} = ?`).run(par1, par2)
@@ -35,5 +45,6 @@ function updatedbDiscount(set, where, par1, par2) {
 module.exports = {
     createDiscountdb,
     getdbDiscount,
-    updatedbDiscount
+    updatedbDiscount,
+    getInfoDate
 }

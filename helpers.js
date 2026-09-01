@@ -66,13 +66,35 @@ async function safeEdit(ctx, text, button = {}, idMessageEdit = null) {
     }
 }
 
-function adddbColomn(){
-    
+function getObjdbColomnName(db, nameTable) {
+    const columns = db.prepare(`PRAGMA table_info(${nameTable})`).all().map(col => col.name.toLowerCase());
+    return columns
 }
+
+function createdb(db, nameTable, dbNameObj) {
+    const columns = getObjdbColomnName(db, nameTable)
+
+    for (const item of dbNameObj) {
+        const isExist = columns.includes(item.name.toLowerCase());
+
+        if (!isExist) {
+
+            let defaultPart = ''
+            if (item.default !== undefined) {
+                const formattedDefault = typeof item.default === 'string' ? `'${item.default}'` : item.default;
+                defaultPart = `DEFAULT ${formattedDefault}`
+            }
+
+            db.exec(`ALTER TABLE ${nameTable} ADD COLUMN ${item.name} ${item.type} ${defaultPart}`)
+        }
+    }
+}
+
 
 module.exports = {
     checkOwnersId,
     safeDelete,
     safeEdit,
-    persent
+    persent,
+    createdb
 };

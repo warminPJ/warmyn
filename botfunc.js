@@ -208,53 +208,55 @@ async function outputMsg(ctx, flag = 0) {
         const userId = ctx.from.id;
         console.log('ye')
         const dbDiscount = getdbDiscount(userId);
-        if(!dbDiscount){
-        return await safeEdit(ctx, 'Цены на тарифы:',
-            Markup.inlineKeyboard([
-                [
-                    Markup.button.callback('Бимбимбамбам | ♾️ гб | 3 устр', 'plug')
-                ], [
-                    Markup.button.callback(`1 мес • ${takeFixPrice(userId, 11)} руб`, 'chivo:1'),
-                    Markup.button.callback(`3 мес • ${takeFixPrice(userId, 31)} руб (-15%)`, 'chivo:2')
-                ], [
-                    Markup.button.callback(`6 мес • ${takeFixPrice(userId, 61)} руб (-25%)`, 'chivo:3'),
-                    Markup.button.callback(`12 мес • ${takeFixPrice(userId, 91)} руб (-40%)`, 'chivo:4')
-                ], [
-                    Markup.button.callback(`Бахбах | ♾️ гб | 10 устр`, 'plug')
-                ], [
-                    Markup.button.callback(`1 мес • ${takeFixPrice(userId, 12)} руб`, 'chivo:1'),
-                    Markup.button.callback(`3 мес • ${takeFixPrice(userId, 32)} руб (-15%)`, 'chivo:2')
-                ], [
-                    Markup.button.callback(`6 мес • ${takeFixPrice(userId, 62)} руб (-25%)`, 'chivo:3'),
-                    Markup.button.callback(`12 мес • ${takeFixPrice(userId, 92)} руб (-40%)`, 'chivo:4')
-                ], [
-                    Markup.button.callback('Назад', 'back')
-                ],
-            ])
-        )}else{
-        return await safeEdit(ctx, 'Цены на тарифы:',
-            Markup.inlineKeyboard([
-                [
-                    Markup.button.callback('Бимбимбамбам | ♾️ гб | 3 устр', 'plug')
-                ], [
-                    Markup.button.callback(`1 мес • ${takeFixPrice(userId, 11)} руб`, 'chivo:1'),
-                    Markup.button.callback(`3 мес • ${takeFixPrice(userId, 31)} руб (-27%)`, 'chivo:2')
-                ], [
-                    Markup.button.callback(`6 мес • ${takeFixPrice(userId, 61)} руб (-37%)`, 'chivo:3'),
-                    Markup.button.callback(`12 мес • ${takeFixPrice(userId, 91)} руб (-52%)`, 'chivo:4')
-                ], [
-                    Markup.button.callback(`Бахбах | ♾️ гб | 10 устр`, 'plug')
-                ], [
-                    Markup.button.callback(`1 мес • ${takeFixPrice(userId, 12)} руб`, 'chivo:1'),
-                    Markup.button.callback(`3 мес • ${takeFixPrice(userId, 32)} руб (-27%)`, 'chivo:2')
-                ], [
-                    Markup.button.callback(`6 мес • ${takeFixPrice(userId, 62)} руб (-37%)`, 'chivo:3'),
-                    Markup.button.callback(`12 мес • ${takeFixPrice(userId, 92)} руб (-52%)`, 'chivo:4')
-                ], [
-                    Markup.button.callback('Назад', 'back')
-                ],
-            ])
-        )}
+        if (!dbDiscount) {
+            return await safeEdit(ctx, 'Цены на тарифы:',
+                Markup.inlineKeyboard([
+                    [
+                        Markup.button.callback('Бимбимбамбам | ♾️ гб | 3 устр', 'plug')
+                    ], [
+                        Markup.button.callback(`1 мес • ${takeFixPrice(userId, 11)} руб`, 'chivo:1'),
+                        Markup.button.callback(`3 мес • ${takeFixPrice(userId, 31)} руб (-15%)`, 'chivo:2')
+                    ], [
+                        Markup.button.callback(`6 мес • ${takeFixPrice(userId, 61)} руб (-25%)`, 'chivo:3'),
+                        Markup.button.callback(`12 мес • ${takeFixPrice(userId, 91)} руб (-40%)`, 'chivo:4')
+                    ], [
+                        Markup.button.callback(`Бахбах | ♾️ гб | 10 устр`, 'plug')
+                    ], [
+                        Markup.button.callback(`1 мес • ${takeFixPrice(userId, 12)} руб`, 'chivo:1'),
+                        Markup.button.callback(`3 мес • ${takeFixPrice(userId, 32)} руб (-15%)`, 'chivo:2')
+                    ], [
+                        Markup.button.callback(`6 мес • ${takeFixPrice(userId, 62)} руб (-25%)`, 'chivo:3'),
+                        Markup.button.callback(`12 мес • ${takeFixPrice(userId, 92)} руб (-40%)`, 'chivo:4')
+                    ], [
+                        Markup.button.callback('Назад', 'back')
+                    ],
+                ])
+            )
+        } else {
+            return await safeEdit(ctx, 'Цены на тарифы:',
+                Markup.inlineKeyboard([
+                    [
+                        Markup.button.callback('Бимбимбамбам | ♾️ гб | 3 устр', 'plug')
+                    ], [
+                        Markup.button.callback(`1 мес • ${takeFixPrice(userId, 11)} руб`, 'chivo:1'),
+                        Markup.button.callback(`3 мес • ${takeFixPrice(userId, 31)} руб (-27%)`, 'chivo:2')
+                    ], [
+                        Markup.button.callback(`6 мес • ${takeFixPrice(userId, 61)} руб (-37%)`, 'chivo:3'),
+                        Markup.button.callback(`12 мес • ${takeFixPrice(userId, 91)} руб (-52%)`, 'chivo:4')
+                    ], [
+                        Markup.button.callback(`Бахбах | ♾️ гб | 10 устр`, 'plug')
+                    ], [
+                        Markup.button.callback(`1 мес • ${takeFixPrice(userId, 12)} руб`, 'chivo:1'),
+                        Markup.button.callback(`3 мес • ${takeFixPrice(userId, 32)} руб (-27%)`, 'chivo:2')
+                    ], [
+                        Markup.button.callback(`6 мес • ${takeFixPrice(userId, 62)} руб (-37%)`, 'chivo:3'),
+                        Markup.button.callback(`12 мес • ${takeFixPrice(userId, 92)} руб (-52%)`, 'chivo:4')
+                    ], [
+                        Markup.button.callback('Назад', 'back')
+                    ],
+                ])
+            )
+        }
     } else {
         const userId = ctx.from.id
         return await safeEdit(ctx, 'Выберите тариф:',
@@ -300,8 +302,11 @@ async function checkOwner(ctx, next) {
 }
 
 function openMenuAdmin(ctx) {
-    return safeEdit(ctx,'Та самая крутая админка:',
+    return safeEdit(ctx, 'Та самая крутая админка:',
         Markup.inlineKeyboard([
+            [
+                Markup.button.callback('общая стата', 'generalState')
+            ],
             [
                 Markup.button.callback('касттариф', 'custTarryf')
             ],
@@ -310,7 +315,7 @@ function openMenuAdmin(ctx) {
             ],
             [
                 Markup.button.callback('рефки', 'refka')
-            ],            [
+            ], [
                 Markup.button.callback('Назад', 'back')
             ]
         ])

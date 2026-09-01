@@ -1,24 +1,33 @@
 const Datebase = require('better-sqlite3');
 const db = new Datebase('base.db');
+const { createdb } = require('../helpers')
 //создание базы данных пользователей, основная
+
+const dbNameObj = [
+    { name: 'subTime', type: 'INTEGER' },
+    { name: 'maxGB', type: 'INTEGER' },
+    { name: 'subId', type: 'TEXT' },
+    { name: 'link', type: 'TEXT' },
+    { name: 'uuid', type: 'TEXT' },
+    { name: 'username', type: 'TEXT' },
+    { name: 'nameTaryff', type: 'TEXT' },
+    { name: 'notified1h', type: 'INTEGER', default: 0 },
+    { name: 'demotaryff', type: 'INTEGER', default: 0 },
+    { name: 'stop', type: 'INTEGER', default: 0 },
+    { name: 'stopTime', type: 'INTEGER', default: 0 },
+    { name: 'stopQuantity', type: 'INTEGER', default: 0 },
+    { name: 'hwidDeviceLimit', type: 'INTEGER' }
+];
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    userId TEXT PRIMARY KEY,
-    subTime INTEGER,
-    maxGB INTEGER,
-    subId TEXT,
-    link TEXT,
-    uuid TEXT,
-    username TEXT,
-    nameTaryff TEXT,
-    notified1h INTEGER DEFAULT 0,
-    demotaryff INTEGER DEFAULT 0,
-    stop INTEGER DEFAULT 0,
-    stopTime INTEGER DEFAULT 0,
-    stopQuantity INTEGER DEFAULT 0,
-    hwidDeviceLimit INTEGER
+    userId TEXT PRIMARY KEY
   )
 `);
+
+createdb(db, 'users', dbNameObj)
+
+
 const stmt = db.prepare(`
   INSERT OR REPLACE INTO users (
     userId, subTime, maxGB, subId, link, uuid, username, nameTaryff,
@@ -84,6 +93,15 @@ function getLink(userId) {
         }
     }
 }
+const getAllNum = db.prepare(`SELECT 
+  COUNT(CASE WHEN notified1h <= 1 THEN 1 END) AS generalUser
+FROM users`)
+
+//получение колва людей впринципе
+function getGenerateNumUser(){
+    return getAllNum.get();
+}
+
 // получение всей строки с пользователем
 function getDateDbUsers(userId) {
     return db.prepare('SELECT * FROM users WHERE userId = ?').get(userId);
@@ -94,5 +112,6 @@ module.exports = {
     createSubdb,
     db,
     getDateDbUsers,
-    updatedbUsers
+    updatedbUsers,
+    getGenerateNumUser
 }
