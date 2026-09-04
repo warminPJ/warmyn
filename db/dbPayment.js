@@ -1,12 +1,24 @@
-const Datebase = require('better-sqlite3');
-const db = new Datebase('base.db');
+const { db } = require('./dbUsers');
+const { createTable, createdb, getInsertStmt } = require('../helpers');
 
 //база с историей всех операций(денежных, смертельных)
-db.exec(`CREATE TABLE IF NOT EXISTS payment (paymentId TEXT PRIMARY KEY, userId TEXT, maxGB INTEGER, subTime INTEGER, status TEXT DEFAULT 'pending', createdAt INTEGER, nameTaryff TEXT, hwidDeviceLimit INTEGER)`)
-const insertPayment = db.prepare('INSERT OR REPLACE INTO payment (paymentId, userId, maxGB, subTime, createdAt, nameTaryff, hwidDeviceLimit) VALUES (?, ?, ?, ?, ?, ?, ?)');
+const dbNameObj = [
+    { name: 'paymentId', type: 'TEXT', required: true, primaryKey: true },
+    { name: 'userId', type: 'TEXT' },
+    { name: 'maxGB', type: 'INTEGER' },
+    { name: 'subTime', type: 'INTEGER' },
+    { name: 'status', type: 'TEXT', default: 'pending' },
+    { name: 'createdAt', type: 'TEXT' },
+    { name: 'nameTaryff', type: 'TEXT' },
+    { name: 'hwidDeviceLimit', type: 'INTEGER' }
+];
+
+createTable(db, 'payment', dbNameObj);
+createdb(db, 'payment', dbNameObj);
+const insertPayment = getInsertStmt(db, 'payment', dbNameObj.filter(column => column.name !== 'status'));
 
 function createPayment(paymentId, userId, maxGb, subTime, nameTaryff, hwidDeviceLimit) {
-    const log = insertPayment.run(paymentId, userId, maxGb, subTime, new Date(Date.now()).toLocaleString('ru-RU'), nameTaryff, hwidDeviceLimit);
+    return insertPayment.run({ paymentId, userId, maxGB: maxGb, subTime, nameTaryff, hwidDeviceLimit, createdAt: new Date(Date.now()).toLocaleString('ru-RU') });
 }
 
 function dontTouch(paymentId) {

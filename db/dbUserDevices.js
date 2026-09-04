@@ -1,21 +1,23 @@
-const Datebase = require('better-sqlite3');
-const db = new Datebase('base.db');
+const { db } = require('./dbUsers');
+const { createTable, createdb, getInsertStmt } = require('../helpers');
 const { writeLogs } = require('../logs/logFunc');
 const { Markup } = require('telegraf');
 
-db.exec(`CREATE TABLE IF NOT EXISTS devices (
-    subId INTEGER NOT NULL,
-    hwid TEXT NOT NULL,
-    device_model TEXT,
-    devicePlatform TEXT,
-    synced_at TEXT NOT NULL,
-    PRIMARY KEY (subId, hwid)
-)`);
+const dbNameObj = [
+    { name: 'subId', type: 'INTEGER', required: true },
+    { name: 'hwid', type: 'TEXT', required: true },
+    { name: 'device_model', type: 'TEXT' },
+    { name: 'devicePlatform', type: 'TEXT' },
+    { name: 'synced_at', type: 'TEXT', required: true }
+];
 
-const insertDevices = db.prepare('INSERT OR REPLACE INTO devices (subId, hwid, device_model, devicePlatform, synced_at) VALUES (?, ?, ?, ?, ?)');
+createTable(db, 'devices', dbNameObj, ['PRIMARY KEY (subId, hwid)']);
+createdb(db, 'devices', dbNameObj);
+
+const insertDevices = getInsertStmt(db, 'devices', dbNameObj);
 
 function createDevicesdb(userId, hwid, device_model, devicePlatform, synced_at) {
-    return insertDevices.run(userId, hwid, device_model, devicePlatform, synced_at);
+    return insertDevices.run({ subId: userId, hwid, device_model, devicePlatform, synced_at });
 }
 //удаление всех предыдущих устройств привязанных к конкретному subId
 function deleteDevicesBySubId(subId) {
@@ -32,13 +34,10 @@ function deleteDevicesBySubId(subId) {
 // запись устройств пользователя с привязкой по subId с помощью цикла
 function saveDevicesToDb(subId, devices) {
     deleteDevicesBySubId(subId)
-    const insert = db.prepare(`
-        INSERT INTO devices (subId, hwid, device_model, devicePlatform, synced_at)
-        VALUES(?, ?, ?, ?, ?)
-        `);
+    const insert = getInsertStmt(db, 'devices', dbNameObj, false);
     const now = new Date().toISOString();
     for (const d of devices) {
-        insert.run(subId, d.hwid, d.deviceModel || 'Неизвестная модель', d.platform || 'Устройство', now)
+        insert.run({ subId, hwid: d.hwid, device_model: d.deviceModel || 'Неизвестная модель', devicePlatform: d.platform || 'Устройство', synced_at: now });
     }
 }
 //получение всей строки с subId

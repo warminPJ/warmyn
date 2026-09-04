@@ -22,7 +22,12 @@ const custTaryffLogic = require('./action/custTaryff')
 const { composer: discountLogic, onoffDiscount, takeFixPrice } = require('./akciiEpt/discount')
 
 //инициализация бота
-const bot = new Telegraf(botToken
+const bot = new Telegraf(botToken,
+    {
+        telegram: {
+            agent: agent
+        }
+    }
 )
 
 //обработка /start

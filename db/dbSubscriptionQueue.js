@@ -1,22 +1,25 @@
-const Datebase = require('better-sqlite3');
-const db = new Datebase('base.db');
+const { db } = require('./dbUsers');
+const { createTable, createdb, getInsertStmt } = require('../helpers');
 const { writeLogs } = require('../logs/logFunc');
 const { Markup } = require('telegraf');
 const { create } = require('axios');
 
-db.exec(`CREATE TABLE IF NOT EXISTS subscritionQueue (
-    userId INTEGER NOT NULL,
-    uuid TEXT NOT NULL,
-    nameTaryff TEXT,
-    createdAt INTEGER,
-    subTime INTEGER,
-    maxGB INTEGER,
-    hwidDeviceLimit INTEGER
-)`);
+const dbNameObj = [
+    { name: 'userId', type: 'INTEGER', required: true },
+    { name: 'uuid', type: 'TEXT', required: true },
+    { name: 'nameTaryff', type: 'TEXT' },
+    { name: 'createdAt', type: 'TEXT' },
+    { name: 'subTime', type: 'INTEGER' },
+    { name: 'maxGB', type: 'INTEGER' },
+    { name: 'hwidDeviceLimit', type: 'INTEGER' }
+];
 
-const subscritionQueue = db.prepare('INSERT OR REPLACE INTO subscritionQueue (userId, uuid, nameTaryff, createdAt, subTime, maxGB, hwidDeviceLimit) VALUES (?, ?, ?, ?, ?, ?, ?)');
+createTable(db, 'subscritionQueue', dbNameObj);
+createdb(db, 'subscritionQueue', dbNameObj);
+
+const subscritionQueue = getInsertStmt(db, 'subscritionQueue', dbNameObj);
 function createSubscritionQueue(userId, uuid, nameTaryff, createdAt, maxGB, subTime, hwidDeviceLimit) {
-    return subscritionQueue.run(userId, uuid, nameTaryff, createdAt, maxGB, subTime, hwidDeviceLimit)
+    return subscritionQueue.run({ userId, uuid, nameTaryff, createdAt, maxGB, subTime, hwidDeviceLimit })
 }
 //получение всей строки
 function getDateDbSubscritionQueue(userId) {
@@ -32,11 +35,7 @@ function addSubIndb(userId = 0, uuid, nameTaryff = '', subTime, maxGB = 0, hwidD
     console.log(`end ${new Date(subTime).toISOString()}`)
 
     const now = new Date(Date.now()).toISOString();
-    const insert = db.prepare(`
-        INSERT INTO subscritionQueue (userId, uuid, nameTaryff, createdAt, subTime, maxGB, hwidDeviceLimit)
-        VALUES(?, ?, ?, ?, ?, ?, ?)
-        `).run(userId, uuid, nameTaryff, now, subTime, maxGB, hwidDeviceLimit)
-    return
+    return subscritionQueue.run({ userId, uuid, nameTaryff, createdAt: now, subTime, maxGB, hwidDeviceLimit });
 }
 
 function deleteSubscritionQueue(userId){

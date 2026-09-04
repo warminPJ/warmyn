@@ -1,18 +1,21 @@
-const Datebase = require('better-sqlite3');
 const { Markup } = require('telegraf');
-const {db} = require('./dbUsers')
+const { db } = require('./dbUsers');
+const { createTable, createdb, getInsertStmt } = require('../helpers');
 
-db.exec(`CREATE TABLE IF NOT EXISTS ad (
-    source TEXT PRIMARY KEY,
-    sumUser INTEGER,
-    resultLink TEXT,
-    name TEXT DEFAULT 'not',
-    createdAt INTEGER DEFAULT CURRENT_TIMESTAMP
-)`);
+const dbNameObj = [
+    { name: 'source', type: 'TEXT', required: true, primaryKey: true },
+    { name: 'sumUser', type: 'INTEGER' },
+    { name: 'resultLink', type: 'TEXT' },
+    { name: 'name', type: 'TEXT', default: 'not' },
+    { name: 'createdAt', type: 'TEXT' }
+];
+
+createTable(db, 'ad', dbNameObj);
+createdb(db, 'ad', dbNameObj);
 
 const mapCreateRef = new Map()
 
-const ad = db.prepare('INSERT OR REPLACE INTO ad (source, sumUser, resultLink, name) VALUES (?, ?, ?, ?)')
+const ad = getInsertStmt(db, 'ad', dbNameObj.slice(0, 4));
 
 const getUserAd = db.prepare('SELECT * FROM ad WHERE source = ?');
 
@@ -23,7 +26,7 @@ function getdbAd(source) {
 
 function createRef(sourse, sumUser = 0, resultLink, name = 'not') {
     //первоначальное создание в админке
-    ad.run(sourse, sumUser, resultLink, name)
+    ad.run({ source: sourse, sumUser, resultLink, name })
 }
 
 

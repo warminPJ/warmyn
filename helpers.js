@@ -71,6 +71,29 @@ function getObjdbColomnName(db, nameTable) {
     return columns
 }
 
+function getColumnNames(dbNameObj) {
+    return dbNameObj.map(column => column.name);
+}
+
+function createTable(db, nameTable, dbNameObj, constraints = []) {
+    const definitions = dbNameObj.map(column => {
+        let definition = `${column.name} ${column.type}`;
+        if (column.primaryKey) definition += ' PRIMARY KEY';
+        if (column.required) definition += ' NOT NULL';
+        if (column.default !== undefined) {
+            const defaultValue = column.defaultExpression
+                ? column.default
+                : typeof column.default === 'string' ? `'${column.default}'` : column.default;
+            definition += ` DEFAULT ${defaultValue}`;
+        }
+        return definition;
+    });
+
+    db.exec(`CREATE TABLE IF NOT EXISTS ${nameTable} (
+        ${definitions.concat(constraints).join(',\n        ')}
+    )`);
+}
+
 function createdb(db, nameTable, dbNameObj) {
     const columns = getObjdbColomnName(db, nameTable)
 
@@ -81,7 +104,9 @@ function createdb(db, nameTable, dbNameObj) {
 
             let defaultPart = ''
             if (item.default !== undefined) {
-                const formattedDefault = typeof item.default === 'string' ? `'${item.default}'` : item.default;
+                const formattedDefault = item.defaultExpression
+                    ? item.default
+                    : typeof item.default === 'string' ? `'${item.default}'` : item.default;
                 defaultPart = `DEFAULT ${formattedDefault}`
             }
 
@@ -91,10 +116,51 @@ function createdb(db, nameTable, dbNameObj) {
 }
 
 
+const stmtCache = new Map();
+
+function getInsertStmt(db, tableName, dbNameObj, replace = true) {
+        const columns = getColumnNames(dbNameObj);
+        const key = `${tableName}:${columns.join(',')}:${replace}`;
+    if (!stmtCache.has(key)) {
+                const insertMode = replace ? 'INSERT OR REPLACE' : 'INSERT';
+        const sql = `
+                    ${insertMode} INTO ${tableName} (
+            ${columns.join(', ')}
+          ) VALUES (
+            ${columns.map(c => '@' + c).join(', ')}
+          )
+        `;
+        stmtCache.set(key, db.prepare(sql));
+    }
+    return stmtCache.get(key);
+}
+
+function getUpsertStmt(db, tableName, dbNameObj, keyColumn, valueColumn) {
+    const columns = getColumnNames(dbNameObj);
+    if (!columns.includes(keyColumn) || !columns.includes(valueColumn)) {
+        throw new Error(`Неизвестная колонка для upsert: ${keyColumn} или ${valueColumn}`);
+    }
+
+    const cacheKey = `upsert:${tableName}:${keyColumn}:${valueColumn}`;
+    if (!stmtCache.has(cacheKey)) {
+        stmtCache.set(cacheKey, db.prepare(`
+            INSERT INTO ${tableName} (${keyColumn}, ${valueColumn})
+            VALUES (@${keyColumn}, @${valueColumn})
+            ON CONFLICT(${keyColumn})
+            DO UPDATE SET ${valueColumn} = excluded.${valueColumn}
+        `));
+    }
+    return stmtCache.get(cacheKey);
+}
+
 module.exports = {
     checkOwnersId,
     safeDelete,
     safeEdit,
     persent,
-    createdb
+    getColumnNames,
+    createTable,
+    createdb,
+    getInsertStmt,
+    getUpsertStmt
 };

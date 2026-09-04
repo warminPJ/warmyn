@@ -1,24 +1,29 @@
-const Datebase = require('better-sqlite3');
-const db = new Datebase('base.db');
+const { db } = require('./dbUsers');
+const { createTable, createdb, getInsertStmt } = require('../helpers');
 const { writeLogs } = require('../logs/logFunc');
 const { Markup } = require('telegraf');
 
 
-db.exec(`CREATE TABLE IF NOT EXISTS discount (
-    userId INTEGER NOT NULL PRIMARY KEY,
-    username TEXT,
-    discountPercent INTEGER DEFAULT 20,
-    isNotified INTEGER DEFAULT 0,
-    isUsed INTEGER DEFAULT 0,
-    source TEXT,
-    maxLimit INTEGER DEFAULT 6,
-    createdAt INTEGER DEFAULT CURRENT_TIMESTAMP
-)`);//limit это 6 месяцев скидки
+const dbNameObj = [
+    { name: 'userId', type: 'INTEGER', required: true, primaryKey: true },
+    { name: 'username', type: 'TEXT' },
+    { name: 'discountPercent', type: 'INTEGER', default: 20 },
+    { name: 'isNotified', type: 'INTEGER', default: 0 },
+    { name: 'isUsed', type: 'INTEGER', default: 0 },
+    { name: 'source', type: 'TEXT' },
+    { name: 'maxLimit', type: 'INTEGER', default: 6 },
+    { name: 'createdAt', type: 'INTEGER', default: 0 }
+];
 
-const discount = db.prepare('INSERT OR REPLACE INTO discount (userId, username, discountPercent, isNotified, isUsed, source, maxLimit) VALUES (?, ?, ?, ?, ?, ?, ?)')
+createTable(db, 'discount', dbNameObj);
+createdb(db, 'discount', dbNameObj);
+
+const discount = getInsertStmt(db, 'discount', dbNameObj.filter(column =>
+    ['userId', 'username', 'discountPercent', 'isNotified', 'isUsed', 'source', 'maxLimit'].includes(column.name)
+));
 
 function createDiscountdb(userId, username, discountPercent = 20, source) {
-    return discount.run(userId, username, discountPercent, 0, 0, source, 6);
+    return discount.run({ userId, username, discountPercent, isNotified: 0, isUsed: 0, source, maxLimit: 6 });
 }
 
 const getUserDiscount = db.prepare('SELECT * FROM discount WHERE userId = ?');
